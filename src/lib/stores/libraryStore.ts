@@ -18,6 +18,7 @@ interface LibraryState {
   /** Copy via Rust, insert rows via SQLite, then refresh the file list. */
   importFiles: (sourcePaths: string[], projectId: number | null) => Promise<ImportResult>;
   deleteFile: (file: GpxFile) => Promise<void>;
+  renameFile: (fileId: number, name: string) => Promise<void>;
   assignFile: (fileId: number, projectId: number | null) => Promise<void>;
   createProject: (name: string, description: string) => Promise<Project>;
   renameProject: (id: number, name: string) => Promise<void>;
@@ -64,6 +65,12 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       console.warn("File row removed but disk copy could not be deleted:", error);
     }
     set({ files: get().files.filter((f) => f.id !== file.id) });
+  },
+
+  renameFile: async (fileId, name) => {
+    await repo.renameGpxFile(fileId, name);
+    const files = await repo.listGpxFiles();
+    set({ files });
   },
 
   assignFile: async (fileId, projectId) => {

@@ -1,5 +1,5 @@
 import { Box, HStack, IconButton, NativeSelect, Table, Text } from "@chakra-ui/react";
-import { ExportIcon, EyeIcon, TrashIcon } from "@phosphor-icons/react";
+import { ExportIcon, EyeIcon, PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react";
 import { confirm, save } from "@tauri-apps/plugin-dialog";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -7,7 +7,8 @@ import { toaster } from "../../components/ui/toaster";
 import { formatCount, formatDate, formatDistance } from "../../lib/format";
 import { exportGpxFile } from "../../lib/ipc";
 import { useLibraryStore } from "../../lib/stores/libraryStore";
-import type { GpxFile } from "../../lib/types/models";
+import { fileDisplayName, type GpxFile } from "../../lib/types/models";
+import { RenameFileDialog } from "./RenameFileDialog";
 
 const GPX_FILTERS = [{ name: "GPX files", extensions: ["gpx"] }];
 
@@ -52,9 +53,11 @@ export function FilesTable({ files, emptyMessage }: FilesTableProps) {
 function FileRow({ file }: { file: GpxFile }) {
   const projects = useLibraryStore((s) => s.projects);
   const assignFile = useLibraryStore((s) => s.assignFile);
+  const renameFile = useLibraryStore((s) => s.renameFile);
   const deleteFile = useLibraryStore((s) => s.deleteFile);
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
 
   const stats = useMemo(() => {
     const parts: string[] = [];
@@ -98,9 +101,23 @@ function FileRow({ file }: { file: GpxFile }) {
     }
   }
 
+  async function handleRename(name: string) {
+    try {
+      await renameFile(file.id, name);
+      toaster.create({ title: "File renamed", type: "success" });
+    } catch (error) {
+      toaster.create({
+        title: "Rename failed",
+        description: error instanceof Error ? error.message : String(error),
+        type: "error",
+      });
+      throw error;
+    }
+  }
+
   async function handleDelete() {
     const ok = await confirm(
-      `Remove "${file.originalName}" from the library? The imported copy on disk is deleted; the original file is untouched.`,
+      `Remove "${fileDisplayName(file)}" from the library? The imported copy on disk is deleted; the original file is untouched.`,
       { title: "Delete file", kind: "warning", okLabel: "Delete", cancelLabel: "Cancel" },
     );
     if (!ok) return;
@@ -119,14 +136,21 @@ function FileRow({ file }: { file: GpxFile }) {
   return (
     <Table.Row>
       <Table.Cell>
-        <Text fontWeight="medium" lineClamp={1} title={file.originalName}>
-          {file.originalName}
-        </Text>
+        <Box minW="0">
+          <Text fontWeight="medium" lineClamp={1} title={file.originalName}>
+            {fileDisplayName(file)}
+          </Text>
+          {file.name && (
+            <Text color="fg.muted" textStyle="xs" lineClamp={1}>
+              {file.originalName}
+            </Text>
+          )}
+        </Box>
       </Table.Cell>
       <Table.Cell>
         <NativeSelect.Root size="xs" minW="8rem" maxW="12rem">
           <NativeSelect.Field
-            aria-label={`Move "${file.originalName}" to a project`}
+            aria-label={`Move "${fileDisplayName(file)}" to a project`}
             value={file.projectId === null ? "" : String(file.projectId)}
             onChange={(event) => {
               const value = event.currentTarget.value;
@@ -158,7 +182,7 @@ function FileRow({ file }: { file: GpxFile }) {
       <Table.Cell textAlign="right">
         <HStack gap="1" justify="flex-end">
           <IconButton
-            aria-label={`View ${file.originalName}`}
+            aria-label={`View ${fileDisplayName(file)}`}
             variant="ghost"
             size="sm"
             onClick={() => navigate(`/files/${file.id}`)}
@@ -166,7 +190,15 @@ function FileRow({ file }: { file: GpxFile }) {
             <EyeIcon />
           </IconButton>
           <IconButton
-            aria-label={`Export ${file.originalName}`}
+            aria-label={`Rename ${fileDisplayName(file)}`}
+            variant="ghost"
+            size="sm"
+            onClick={() => setRenameOpen(true)}
+          >
+            <PencilSimpleIcon />
+          </IconButton>
+          <IconButton
+            aria-label={`Export ${fileDisplayName(file)}`}
             variant="ghost"
             size="sm"
             disabled={busy}
@@ -175,7 +207,7 @@ function FileRow({ file }: { file: GpxFile }) {
             <ExportIcon />
           </IconButton>
           <IconButton
-            aria-label={`Delete ${file.originalName}`}
+            aria-label={`Delete ${fileDisplayName(file)}`}
             variant="ghost"
             size="sm"
             colorPalette="red"
@@ -185,6 +217,12 @@ function FileRow({ file }: { file: GpxFile }) {
           </IconButton>
         </HStack>
       </Table.Cell>
+      <RenameFileDialog
+        open={renameOpen}
+        file={file}
+        onClose={() => setRenameOpen(false)}
+        onSubmit={handleRename}
+      />
     </Table.Row>
   );
 }
