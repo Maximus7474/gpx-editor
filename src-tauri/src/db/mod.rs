@@ -55,5 +55,11 @@ pub fn migrations() -> Vec<Migration> {
                 value TEXT NOT NULL
             );",
         },
+        Migration {
+            version: 5,
+            description: "gpx_files_display_name",
+            kind: MigrationKind::Up,
+            sql: "ALTER TABLE gpx_files ADD COLUMN name TEXT;",
+        },
     ]
 }

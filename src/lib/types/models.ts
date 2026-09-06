@@ -14,6 +14,7 @@ export interface GpxFile {
   projectId: number | null;
   filePath: string;
   originalName: string;
+  name: string | null;
   importedAt: string;
   trackCount: number;
   waypointCount: number;
@@ -24,6 +25,10 @@ export interface GpxFile {
   boundsMinLon: number | null;
   boundsMaxLat: number | null;
   boundsMaxLon: number | null;
+}
+
+export function fileDisplayName(file: GpxFile): string {
+  return file.name ?? file.originalName;
 }
 
 /** A GpxFile's lat/lon bounds as stored, when present. */

@@ -94,6 +94,11 @@ export async function deleteGpxFile(id: number): Promise<void> {
   await (await getDb()).execute("DELETE FROM gpx_files WHERE id = $1", [id]);
 }
 
+/** Set the user-facing display name of a file (the original filename is kept). */
+export async function renameGpxFile(id: number, name: string): Promise<void> {
+  await (await getDb()).execute("UPDATE gpx_files SET name = $1 WHERE id = $2", [name, id]);
+}
+
 /** Move a file into (or out of, when null) a project. */
 export async function assignGpxFile(fileId: number, projectId: number | null): Promise<void> {
   await (await getDb()).execute("UPDATE gpx_files SET project_id = $1 WHERE id = $2", [
@@ -133,6 +138,7 @@ function rowToGpxFile(row: SqlRow): GpxFile {
       row.project_id === null || row.project_id === undefined ? null : Number(row.project_id),
     filePath: String(row.file_path),
     originalName: String(row.original_name),
+    name: row.name === null || row.name === undefined ? null : String(row.name),
     importedAt: String(row.imported_at),
     trackCount: Number(row.track_count),
     waypointCount: Number(row.waypoint_count),
