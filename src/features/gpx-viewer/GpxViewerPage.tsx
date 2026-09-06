@@ -23,9 +23,13 @@ export function GpxViewerPage() {
   const navigate = useNavigate();
   const id = Number(fileId);
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  // Shared highlight position (meters along the ordered path) so hovering the
+  // map cross-highlights the elevation chart and vice versa. Reset on file load.
+  const [hoverDistanceM, setHoverDistanceM] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setHoverDistanceM(null);
     setState({ status: "loading" });
 
     async function load() {
@@ -139,10 +143,15 @@ export function GpxViewerPage() {
       </Box>
 
       <Box flex="1" minH="0">
-        <MapView doc={doc} bounds={bounds} />
+        <MapView
+          doc={doc}
+          bounds={bounds}
+          hoverDistanceM={hoverDistanceM}
+          onHoverChange={setHoverDistanceM}
+        />
       </Box>
 
-      <ElevationPanel doc={doc} />
+      <ElevationPanel doc={doc} hoverDistanceM={hoverDistanceM} onHoverChange={setHoverDistanceM} />
     </Flex>
   );
 }

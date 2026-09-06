@@ -10,7 +10,7 @@
 - [x] Library view: list/grid of imported GPX files, filter by project
 - [x] Project view: create/rename/delete projects, assign files to a project
 - [x] GPX viewer: Leaflet map rendering tracks/waypoints/routes for a selected file
-- [x] GPX viewer: elevation profile chart (distance vs. height, hover tooltip, climb/descent stats)
+- [x] GPX viewer: elevation profile chart (distance vs. height, hover tooltip, climb/descent stats, cross-highlighted with the map on hover)
 - [x] Export: copy a library file back out to a user-chosen location
 - [x] Settings page (placeholder: sidebar behavior, storage location, etc.)
 

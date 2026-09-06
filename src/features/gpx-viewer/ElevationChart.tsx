@@ -3,7 +3,7 @@ import { CaretDown } from "@phosphor-icons/react";
 import { Box, Collapsible, HStack, Text } from "@chakra-ui/react";
 import { useColorModeValue } from "../../components/ui/color-mode";
 import { formatDistance } from "../../lib/format";
-import { elevationProfile, type ElevationProfile, type ElevationProfilePoint } from "../../lib/gpx/profile";
+import { elevationAtDistance, elevationProfile, type ElevationProfile } from "../../lib/gpx/profile";
 import type { GpxDocument } from "../../lib/types/gpx";
 import { ROUTE_COLOR, TRACK_COLOR } from "./MapView";
 
@@ -14,15 +14,21 @@ const MAX_Y_LABEL_INSET = 96;
 
 interface ElevationPanelProps {
   doc: GpxDocument;
+  /** Position along the ordered path (meters) to highlight, if any. Owned by
+      the viewer page so the map and chart can cross-highlight each other. */
+  hoverDistanceM: number | null;
+  onHoverChange: (distanceM: number | null) => void;
 }
 
 /**
  * Elevation profile for a parsed GPX document. Tracks and routes are flattened
  * into one ordered series (most files contain only one of the two); the accent
- * color follows whichever the file actually has. Phase 2 editing will be able
- * to recompute the profile live from the same in-memory document.
+ * color follows whichever the file actually has. Hovering the chart reports a
+ * distance along that same ordered path; the map highlights the matching spot.
+ * Phase 2 editing will be able to recompute the profile live from the same
+ * in-memory document.
  */
-export function ElevationPanel({ doc }: ElevationPanelProps) {
+export function ElevationPanel({ doc, hoverDistanceM, onHoverChange }: ElevationPanelProps) {
   const profile = useMemo(() => elevationProfile(doc), [doc]);
   const accent = doc.tracks.length > 0 ? TRACK_COLOR : ROUTE_COLOR;
   // Start collapsed on narrow (mobile) viewports so the map keeps the space;
@@ -77,7 +83,12 @@ export function ElevationPanel({ doc }: ElevationPanelProps) {
               animation doesn't jank (see the collapsible docs). */}
           <Box pt="1.5">
             {profile ? (
-              <ElevationChart profile={profile} accent={accent} />
+              <ElevationChart
+                profile={profile}
+                accent={accent}
+                hoverDistanceM={hoverDistanceM}
+                onHoverChange={onHoverChange}
+              />
             ) : (
               <Box h={`${CHART_HEIGHT}px`} display="flex" alignItems="center" justifyContent="center">
                 <Text color="fg.muted" textStyle="sm">
@@ -112,13 +123,14 @@ function formatElevation(meters: number): string {
 interface ElevationChartProps {
   profile: ElevationProfile;
   accent: string;
+  hoverDistanceM: number | null;
+  onHoverChange: (distanceM: number | null) => void;
 }
 
-function ElevationChart({ profile, accent }: ElevationChartProps) {
+function ElevationChart({ profile, accent, hoverDistanceM, onHoverChange }: ElevationChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const yLabelGroupRef = useRef<SVGGElement>(null);
   const [width, setWidth] = useState(0);
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   // Left inset grows to fit the widest y-axis label, so no label ever clips
   // at the svg edge regardless of font, zoom, or value width (e.g. "1200 m").
   const [yLabelInset, setYLabelInset] = useState(MIN_Y_LABEL_INSET);
@@ -181,20 +193,28 @@ function ElevationChart({ profile, accent }: ElevationChartProps) {
     setYLabelInset((current) => (current === next ? current : next));
   }, [yTicks, width]);
 
-  const hovered = hoverIndex !== null ? profile.points[hoverIndex] : null;
-  const tooltipLeft = hovered
-    ? Math.min(Math.max(xOf(hovered.distanceM), 64), Math.max(64, width - 64))
+  // A hover is expressed as a distance along the path, so the same value
+  // highlights this chart and the map. Interpolate so the marker rides the
+  // drawn line exactly (samples can sit hundreds of meters apart).
+  const distance = hoverDistanceM !== null ? Math.min(profile.totalDistanceM, Math.max(0, hoverDistanceM)) : null;
+  const hoverElevation = distance !== null ? elevationAtDistance(profile, distance) : null;
+  const tooltipLeft = distance !== null
+    ? Math.min(Math.max(xOf(distance), 64), Math.max(64, width - 64))
     : 0;
 
   function handlePointerMove(event: ReactPointerEvent<SVGRectElement>) {
+    // The capture rect starts at the plot origin, so x is already relative to
+    // the plot: 0 at the left axis, plotWidth at the right edge. (Earlier this
+    // subtracted yLabelInset a second time, shifting the reported distance by
+    // the label gutter and trailing the map marker behind the cursor.)
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
-    if (x < yLabelInset || x > yLabelInset + plotWidth) {
-      setHoverIndex(null);
+    if (x < 0 || x > plotWidth) {
+      onHoverChange(null);
       return;
     }
-    const distanceM = ((x - yLabelInset) / plotWidth) * profile.totalDistanceM;
-    setHoverIndex(nearestIndex(profile.points, distanceM));
+    const distanceM = (x / plotWidth) * profile.totalDistanceM;
+    onHoverChange(distanceM);
   }
 
   if (width === 0) return <Box ref={containerRef} h={`${CHART_HEIGHT}px`} />;
@@ -249,26 +269,28 @@ function ElevationChart({ profile, accent }: ElevationChartProps) {
         <path d={areaPath} fill="url(#elevation-fill)" />
         <path d={linePath} fill="none" stroke={accent} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
 
-        {/* Hover crosshair + marker */}
-        {hovered && (
+        {/* Crosshair + marker at the hovered distance (either direction). */}
+        {distance !== null && (
           <g>
             <line
-              x1={xOf(hovered.distanceM)}
-              x2={xOf(hovered.distanceM)}
+              x1={xOf(distance)}
+              x2={xOf(distance)}
               y1={MARGIN.top}
               y2={plotBottom}
               stroke={axisColor}
               strokeWidth="1"
               strokeDasharray="3 3"
             />
-            <circle
-              cx={xOf(hovered.distanceM)}
-              cy={yOf(hovered.elevationM)}
-              r="4.5"
-              fill={accent}
-              stroke="#ffffff"
-              strokeWidth="1.5"
-            />
+            {hoverElevation !== null && (
+              <circle
+                cx={xOf(distance)}
+                cy={yOf(hoverElevation)}
+                r="4.5"
+                fill={accent}
+                stroke="#ffffff"
+                strokeWidth="1.5"
+              />
+            )}
           </g>
         )}
 
@@ -281,15 +303,15 @@ function ElevationChart({ profile, accent }: ElevationChartProps) {
           fill="transparent"
           style={{ touchAction: "none", cursor: "crosshair" }}
           onPointerMove={handlePointerMove}
-          onPointerLeave={() => setHoverIndex(null)}
+          onPointerLeave={() => onHoverChange(null)}
         />
       </svg>
 
-      {hovered && (
+      {distance !== null && hoverElevation !== null && (
         <Box
           position="absolute"
           left={`${tooltipLeft}px`}
-          top={`${yOf(hovered.elevationM)}px`}
+          top={`${yOf(hoverElevation)}px`}
           transform="translate(-50%, calc(-100% - 10px))"
           bg="bg.panel"
           borderWidth="1px"
@@ -303,10 +325,10 @@ function ElevationChart({ profile, accent }: ElevationChartProps) {
           textAlign="center"
         >
           <Text textStyle="xs" fontWeight="semibold">
-            {hovered.distanceM === 0 ? "0 m" : formatDistance(hovered.distanceM)}
+            {distance === 0 ? "0 m" : formatDistance(distance)}
           </Text>
           <Text textStyle="xs" color="fg.muted">
-            {formatElevation(hovered.elevationM)}
+            {formatElevation(hoverElevation)}
           </Text>
         </Box>
       )}
@@ -344,21 +366,6 @@ function niceScale(rawMin: number, rawMax: number, count: number): NiceScale {
   const ticks: number[] = [];
   for (let value = lo; value <= hi + step * 1e-9; value += step) ticks.push(value);
   return { min: lo, max: hi, step, ticks };
-}
-
-/** Find the sample whose distance is closest to `target` (points are sorted). */
-function nearestIndex(points: ElevationProfilePoint[], target: number): number {
-  let lo = 0;
-  let hi = points.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (points[mid].distanceM < target) lo = mid + 1;
-    else hi = mid;
-  }
-  if (lo > 0 && Math.abs(points[lo - 1].distanceM - target) < Math.abs(points[lo].distanceM - target)) {
-    return lo - 1;
-  }
-  return lo;
 }
 
 function formatElevationTick(value: number, step: number): string {
