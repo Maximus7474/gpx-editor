@@ -1,0 +1,10 @@
+# Normalize line endings to LF. Biome formats to LF, so keeping the working
+# tree LF prevents spurious format diffs on Windows (core.autocrlf).
+* text=auto
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf

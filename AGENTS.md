@@ -35,8 +35,10 @@ explicitly asked — see `ROADMAP.md`.
 ## Repository Conventions
 
 - **Package manager:** Bun
-- **Formatting/linting:** Prettier + ESLint (React/TypeScript configs).
-  Run the project's lint/format scripts before considering a task done.
+- **Formatting/linting:** Biome (config in `biome.json`; ~100-char lines,
+  double quotes, LF endings). Run `bun run lint` (check) and
+  `bun run format` (write) before considering a task done; `lint:fix`
+  applies all safe fixes including import organization.
 - **Types:** TypeScript strict mode. Avoid `any`; define shared types for
   GPX data structures in one place (see `ARCHITECTURE.md`).
 - **Components:** Functional components + hooks only. No class components.
