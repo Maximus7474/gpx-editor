@@ -1,9 +1,9 @@
-import { memo, useEffect, useMemo, useRef } from "react";
-import L, { type LeafletMouseEvent } from "leaflet";
-import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import { Box, HStack, Text } from "@chakra-ui/react";
-import type { GpxDocument, GeoBounds, Waypoint } from "../../lib/types/gpx";
-import { buildOrderedPath, positionAtDistance, type OrderedPath } from "../../lib/gpx/path";
+import L, { type LeafletMouseEvent } from "leaflet";
+import { memo, useEffect, useMemo, useRef } from "react";
+import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
+import { buildOrderedPath, type OrderedPath, positionAtDistance } from "../../lib/gpx/path";
+import type { GeoBounds, GpxDocument, Waypoint } from "../../lib/types/gpx";
 import { DirectionMarkers } from "./DirectionMarkers";
 
 import "leaflet/dist/leaflet.css";
@@ -59,7 +59,11 @@ export function MapView({ doc, bounds, hoverDistanceM, onHoverChange }: MapViewP
         <FitBounds bounds={bounds} />
         {path && <StaticLayers path={path} waypoints={doc.waypoints} />}
         {path && (
-          <MapInteractions path={path} hoverDistanceM={hoverDistanceM} onHoverChange={onHoverChange} />
+          <MapInteractions
+            path={path}
+            hoverDistanceM={hoverDistanceM}
+            onHoverChange={onHoverChange}
+          />
         )}
       </MapContainer>
 
@@ -118,7 +122,7 @@ const StaticLayers = memo(function StaticLayers({ path, waypoints }: StaticLayer
       {path.runs.map((run, runIndex) =>
         run.points.length > 1 ? (
           <LineGroup
-            key={runIndex}
+            key={path.runStart[runIndex]}
             kind={run.kind}
             latlngs={run.points.map(toLatLng)}
             color={run.kind === "track" ? DIRECTION_COLOR : ROUTE_COLOR}
@@ -127,10 +131,15 @@ const StaticLayers = memo(function StaticLayers({ path, waypoints }: StaticLayer
       )}
       {waypoints.map((waypoint, index) => (
         <CircleMarker
-          key={`w${index}`}
+          key={waypoint.name ?? `${waypoint.lat},${waypoint.lon}`}
           center={[waypoint.lat, waypoint.lon]}
           radius={6}
-          pathOptions={{ color: "#ffffff", weight: 1.5, fillColor: WAYPOINT_COLOR, fillOpacity: 0.9 }}
+          pathOptions={{
+            color: "#ffffff",
+            weight: 1.5,
+            fillColor: WAYPOINT_COLOR,
+            fillOpacity: 0.9,
+          }}
         >
           <Popup>
             <Box textStyle="sm">
@@ -232,7 +241,12 @@ function MapInteractions({ path, hoverDistanceM, onHoverChange }: MapInteraction
       if (draggingRef.current) return;
       const cache = cacheRef.current;
       if (!cache) return;
-      const distance = nearestDistanceM(path, cache, event.containerPoint.x, event.containerPoint.y);
+      const distance = nearestDistanceM(
+        path,
+        cache,
+        event.containerPoint.x,
+        event.containerPoint.y,
+      );
       onHoverChange(distance);
     };
     const startDrag = () => {
@@ -290,7 +304,12 @@ function MapInteractions({ path, hoverDistanceM, onHoverChange }: MapInteraction
  * against the precomputed geodesic distances of the segment — visually the
  * same spot, no matter how the map is zoomed.
  */
-function nearestDistanceM(path: OrderedPath, cache: Float64Array, x: number, y: number): number | null {
+function nearestDistanceM(
+  path: OrderedPath,
+  cache: Float64Array,
+  x: number,
+  y: number,
+): number | null {
   const tolerance2 = HOVER_SNAP_PX * HOVER_SNAP_PX;
   let best2 = Infinity;
   let bestIndex = -1;

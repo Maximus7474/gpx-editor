@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
-import { UploadSimpleIcon } from "@phosphor-icons/react";
 import { Button, type ButtonProps } from "@chakra-ui/react";
-import { toaster } from "./ui/toaster";
+import { UploadSimpleIcon } from "@phosphor-icons/react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { useState } from "react";
 import { useLibraryStore } from "../lib/stores/libraryStore";
+import { toaster } from "./ui/toaster";
 
 const GPX_FILTERS = [{ name: "GPX files", extensions: ["gpx"] }];
 
@@ -13,7 +13,11 @@ interface ImportButtonProps {
   label?: string;
 }
 
-export function ImportButton({ projectId, label = "Import", ...rest }: ImportButtonProps & ButtonProps) {
+export function ImportButton({
+  projectId,
+  label = "Import",
+  ...rest
+}: ImportButtonProps & ButtonProps) {
   const importFiles = useLibraryStore((s) => s.importFiles);
   const [busy, setBusy] = useState(false);
 

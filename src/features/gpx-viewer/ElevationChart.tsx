@@ -1,9 +1,19 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { CaretDownIcon } from "@phosphor-icons/react";
 import { Box, Collapsible, HStack, Text } from "@chakra-ui/react";
+import { CaretDownIcon } from "@phosphor-icons/react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useColorModeValue } from "../../components/ui/color-mode";
 import { formatDistance } from "../../lib/format";
-import { elevationAtDistance, elevationProfile, type ElevationProfile } from "../../lib/gpx/profile";
+import {
+  type ElevationProfile,
+  elevationAtDistance,
+  elevationProfile,
+} from "../../lib/gpx/profile";
 import type { GpxDocument } from "../../lib/types/gpx";
 import { ROUTE_COLOR, TRACK_COLOR } from "./MapView";
 
@@ -41,10 +51,24 @@ export function ElevationPanel({ doc, hoverDistanceM, onHoverChange }: Elevation
   });
 
   return (
-    <Box bg="bg.panel" borderTopWidth="1px" borderColor="border.subtle" px={{ base: 4, md: 6 }} py="3" flexShrink="0">
+    <Box
+      bg="bg.panel"
+      borderTopWidth="1px"
+      borderColor="border.subtle"
+      px={{ base: 4, md: 6 }}
+      py="3"
+      flexShrink="0"
+    >
       <Collapsible.Root defaultOpen={initialOpen}>
         <Collapsible.Trigger w="full" p="0" display="block" cursor="pointer">
-          <HStack justify="space-between" align="flex-end" minH="6" gap="3" flexWrap="wrap" w="full">
+          <HStack
+            justify="space-between"
+            align="flex-end"
+            minH="6"
+            gap="3"
+            flexWrap="wrap"
+            w="full"
+          >
             <HStack gap="2">
               <Box w="2.5" h="2.5" rounded="full" bg={accent} flexShrink="0" />
               <Text fontWeight="bold" textStyle="sm">
@@ -59,10 +83,16 @@ export function ElevationPanel({ doc, hoverDistanceM, onHoverChange }: Elevation
                       <ProfileStat label="Min" value={formatElevation(profile.minElevationM)} />
                       <ProfileStat label="Max" value={formatElevation(profile.maxElevationM)} />
                       {profile.totalClimbM > 0.5 && (
-                        <ProfileStat label="Climb" value={`+${formatElevation(profile.totalClimbM)}`} />
+                        <ProfileStat
+                          label="Climb"
+                          value={`+${formatElevation(profile.totalClimbM)}`}
+                        />
                       )}
                       {profile.totalDescentM > 0.5 && (
-                        <ProfileStat label="Descent" value={`−${formatElevation(profile.totalDescentM)}`} />
+                        <ProfileStat
+                          label="Descent"
+                          value={`−${formatElevation(profile.totalDescentM)}`}
+                        />
                       )}
                     </HStack>
                   ) : null
@@ -90,7 +120,12 @@ export function ElevationPanel({ doc, hoverDistanceM, onHoverChange }: Elevation
                 onHoverChange={onHoverChange}
               />
             ) : (
-              <Box h={`${CHART_HEIGHT}px`} display="flex" alignItems="center" justifyContent="center">
+              <Box
+                h={`${CHART_HEIGHT}px`}
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+              >
                 <Text color="fg.muted" textStyle="sm">
                   This file has no elevation data.
                 </Text>
@@ -162,7 +197,10 @@ function ElevationChart({ profile, accent, hoverDistanceM, onHoverChange }: Elev
     const xScale = niceScale(0, totalDistanceM, 5);
 
     const linePath = points
-      .map((p, i) => `${i === 0 ? "M" : "L"}${xOf(p.distanceM).toFixed(2)},${yOf(p.elevationM).toFixed(2)}`)
+      .map(
+        (p, i) =>
+          `${i === 0 ? "M" : "L"}${xOf(p.distanceM).toFixed(2)},${yOf(p.elevationM).toFixed(2)}`,
+      )
       .join("");
     const lastX = xOf(points[points.length - 1].distanceM).toFixed(2);
     const bottom = plotBottom.toFixed(2);
@@ -182,12 +220,15 @@ function ElevationChart({ profile, accent, hoverDistanceM, onHoverChange }: Elev
 
   // Measure the rendered labels (getBBox ignores viewport clipping, so this
   // works even on a first pass where the svg is still too narrow) and widen
-  // the inset to fit. Re-measures whenever ticks or width change.
+  // the inset to fit. Re-measures whenever the tick set or the container
+  // width changes: the svg (and its labels) only exist once width > 0, and
+  // the label strings are derived from yTicks.
   useEffect(() => {
+    if (width === 0) return;
     const group = yLabelGroupRef.current;
     if (!group) return;
     const labels = Array.from(group.querySelectorAll("text"));
-    if (labels.length === 0) return;
+    if (labels.length !== yTicks.length) return;
     const widest = Math.max(...labels.map((label) => label.getBBox().width));
     const next = Math.min(MAX_Y_LABEL_INSET, Math.max(MIN_Y_LABEL_INSET, Math.ceil(widest) + 14));
     setYLabelInset((current) => (current === next ? current : next));
@@ -196,11 +237,11 @@ function ElevationChart({ profile, accent, hoverDistanceM, onHoverChange }: Elev
   // A hover is expressed as a distance along the path, so the same value
   // highlights this chart and the map. Interpolate so the marker rides the
   // drawn line exactly (samples can sit hundreds of meters apart).
-  const distance = hoverDistanceM !== null ? Math.min(profile.totalDistanceM, Math.max(0, hoverDistanceM)) : null;
+  const distance =
+    hoverDistanceM !== null ? Math.min(profile.totalDistanceM, Math.max(0, hoverDistanceM)) : null;
   const hoverElevation = distance !== null ? elevationAtDistance(profile, distance) : null;
-  const tooltipLeft = distance !== null
-    ? Math.min(Math.max(xOf(distance), 64), Math.max(64, width - 64))
-    : 0;
+  const tooltipLeft =
+    distance !== null ? Math.min(Math.max(xOf(distance), 64), Math.max(64, width - 64)) : 0;
 
   function handlePointerMove(event: ReactPointerEvent<SVGRectElement>) {
     // The capture rect starts at the plot origin, so x is already relative to
@@ -238,8 +279,22 @@ function ElevationChart({ profile, accent, hoverDistanceM, onHoverChange }: Elev
         <g ref={yLabelGroupRef}>
           {yTicks.map((tick) => (
             <g key={`y${tick}`}>
-              <line x1={yLabelInset} x2={yLabelInset + plotWidth} y1={yOf(tick)} y2={yOf(tick)} stroke={gridColor} strokeWidth="1" />
-              <text x={yLabelInset - 8} y={yOf(tick)} fill={axisColor} fontSize="10" textAnchor="end" dominantBaseline="middle">
+              <line
+                x1={yLabelInset}
+                x2={yLabelInset + plotWidth}
+                y1={yOf(tick)}
+                y2={yOf(tick)}
+                stroke={gridColor}
+                strokeWidth="1"
+              />
+              <text
+                x={yLabelInset - 8}
+                y={yOf(tick)}
+                fill={axisColor}
+                fontSize="10"
+                textAnchor="end"
+                dominantBaseline="middle"
+              >
                 {formatElevationTick(tick, yStep)}
               </text>
             </g>
@@ -255,7 +310,14 @@ function ElevationChart({ profile, accent, hoverDistanceM, onHoverChange }: Elev
           const clipped = x > width - MARGIN.right - 24;
           return (
             <g key={`x${tick}`}>
-              <line x1={x} x2={x} y1={MARGIN.top} y2={plotBottom} stroke={gridColor} strokeWidth="1" />
+              <line
+                x1={x}
+                x2={x}
+                y1={MARGIN.top}
+                y2={plotBottom}
+                stroke={gridColor}
+                strokeWidth="1"
+              />
               {!clipped && (
                 <text x={x} y={CHART_HEIGHT - 7} fill={axisColor} fontSize="10" textAnchor="middle">
                   {formatDistanceTick(tick, xStep)}
@@ -267,7 +329,14 @@ function ElevationChart({ profile, accent, hoverDistanceM, onHoverChange }: Elev
 
         {/* Profile area + line */}
         <path d={areaPath} fill="url(#elevation-fill)" />
-        <path d={linePath} fill="none" stroke={accent} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        <path
+          d={linePath}
+          fill="none"
+          stroke={accent}
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
 
         {/* Crosshair + marker at the hovered distance (either direction). */}
         {distance !== null && (
@@ -357,9 +426,10 @@ function niceScale(rawMin: number, rawMax: number, count: number): NiceScale {
     max += pad;
   }
   const rawStep = (max - min) / count;
-  const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
   const normalized = rawStep / magnitude;
-  const stepFactor = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10;
+  const stepFactor =
+    normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10;
   const step = stepFactor * magnitude;
   const lo = Math.floor(min / step) * step;
   const hi = Math.ceil(max / step) * step;

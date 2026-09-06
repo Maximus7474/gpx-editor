@@ -1,5 +1,3 @@
-import { useMemo, useState } from "react";
-import { FilesIcon } from "@phosphor-icons/react";
 import {
   Box,
   Button,
@@ -13,6 +11,8 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/react";
+import { FilesIcon } from "@phosphor-icons/react";
+import { useMemo, useState } from "react";
 import { ImportButton } from "../../components/ImportButton";
 import { formatCount } from "../../lib/format";
 import { useLibraryStore } from "../../lib/stores/libraryStore";
@@ -69,11 +69,7 @@ export function LibraryPage() {
           </Box>
 
           <HStack gap="2">
-            <ProjectFilterSelect
-              projects={projects}
-              filter={filter}
-              onFilterChange={setFilter}
-            />
+            <ProjectFilterSelect projects={projects} filter={filter} onFilterChange={setFilter} />
             <ImportButton projectId={null} label="Import files" />
           </HStack>
         </Flex>
@@ -111,9 +107,7 @@ export function LibraryPage() {
           <FilesTable
             files={filtered}
             emptyMessage={
-              filter === "all"
-                ? "No files in the library."
-                : "No files match this project filter."
+              filter === "all" ? "No files in the library." : "No files match this project filter."
             }
           />
         )}
@@ -171,15 +165,7 @@ function ProjectFilterSelect({
             </Select.Item>
           ))}
           {projects.length > 0 && (
-            <Box
-              aria-hidden
-              role="presentation"
-              h="1px"
-              bg="border"
-              mx="3"
-              my="1"
-              flexShrink="0"
-            />
+            <Box aria-hidden role="presentation" h="1px" bg="border" mx="3" my="1" flexShrink="0" />
           )}
           {projects.map((project) => {
             const option: FilterOption = { label: project.name, value: `project:${project.id}` };

@@ -1,6 +1,3 @@
-import { useMemo, useState } from "react";
-import { confirm } from "@tauri-apps/plugin-dialog";
-import { ArrowLeftIcon, FolderPlusIcon, PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react";
 import {
   Box,
   Button,
@@ -15,6 +12,9 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/react";
+import { ArrowLeftIcon, FolderPlusIcon, PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react";
+import { confirm } from "@tauri-apps/plugin-dialog";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ImportButton } from "../../components/ImportButton";
 import { toaster } from "../../components/ui/toaster";
@@ -44,14 +44,8 @@ export function ProjectDetailPage() {
     [projects, id],
   );
 
-  const projectFiles = useMemo(
-    () => files.filter((file) => file.projectId === id),
-    [files, id],
-  );
-  const unassignedFiles = useMemo(
-    () => files.filter((file) => file.projectId === null),
-    [files],
-  );
+  const projectFiles = useMemo(() => files.filter((file) => file.projectId === id), [files, id]);
+  const unassignedFiles = useMemo(() => files.filter((file) => file.projectId === null), [files]);
 
   if (loading && !loaded) {
     return (

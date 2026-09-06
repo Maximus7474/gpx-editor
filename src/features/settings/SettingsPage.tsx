@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { DatabaseIcon, MoonIcon, PaletteIcon, SunIcon } from "@phosphor-icons/react";
 import { Box, Button, Card, HStack, Stack, Text } from "@chakra-ui/react";
+import { DatabaseIcon, MoonIcon, PaletteIcon, SunIcon } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
 import { useColorMode } from "../../components/ui/color-mode";
 import { getLibraryDir } from "../../lib/ipc";
 import { useUiStore } from "../../lib/stores/uiStore";

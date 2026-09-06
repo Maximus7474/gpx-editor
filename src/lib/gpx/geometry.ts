@@ -1,16 +1,17 @@
 import type { GeoBounds, GpxDocument, TrackPoint } from "../types/gpx";
 
 /** Great-circle distance in meters between two lat/lon points (haversine). */
-export function haversineDistanceMeters(a: Pick<TrackPoint, "lat" | "lon">, b: Pick<TrackPoint, "lat" | "lon">): number {
+export function haversineDistanceMeters(
+  a: Pick<TrackPoint, "lat" | "lon">,
+  b: Pick<TrackPoint, "lat" | "lon">,
+): number {
   const EARTH_RADIUS_M = 6371000;
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);
   const dLon = toRad(b.lon - a.lon);
   const sinLat = Math.sin(dLat / 2);
   const sinLon = Math.sin(dLon / 2);
-  const h =
-    sinLat * sinLat +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinLon * sinLon;
+  const h = sinLat * sinLat + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinLon * sinLon;
   return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 

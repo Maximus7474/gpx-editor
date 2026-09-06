@@ -1,12 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  Box,
+  Button,
+  Center,
+  Flex,
+  HStack,
+  IconButton,
+  Spinner,
+  Tag,
+  Text,
+} from "@chakra-ui/react";
 import { ArrowLeftIcon } from "@phosphor-icons/react";
-import { Box, Button, Center, Flex, HStack, IconButton, Spinner, Tag, Text } from "@chakra-ui/react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getGpxFile } from "../../lib/db/repository";
-import { readGpxFile } from "../../lib/ipc";
-import { parseGpx } from "../../lib/gpx/parseGpx";
-import { documentBounds } from "../../lib/gpx/geometry";
 import { formatCount, formatDate, formatDistance } from "../../lib/format";
+import { documentBounds } from "../../lib/gpx/geometry";
+import { parseGpx } from "../../lib/gpx/parseGpx";
+import { readGpxFile } from "../../lib/ipc";
 import type { GpxDocument } from "../../lib/types/gpx";
 import type { GpxFile } from "../../lib/types/models";
 import { ElevationPanel } from "./ElevationChart";
@@ -113,7 +123,14 @@ export function GpxViewerPage() {
 
   return (
     <Flex direction="column" h="100vh" bg="bg.muted">
-      <Box bg="bg.panel" borderBottomWidth="1px" borderColor="border.subtle" px={{ base: 4, md: 6 }} py="3" flexShrink="0">
+      <Box
+        bg="bg.panel"
+        borderBottomWidth="1px"
+        borderColor="border.subtle"
+        px={{ base: 4, md: 6 }}
+        py="3"
+        flexShrink="0"
+      >
         <HStack gap="3">
           <IconButton
             aria-label="Back to library"
@@ -124,15 +141,19 @@ export function GpxViewerPage() {
             <ArrowLeftIcon />
           </IconButton>
           <Box minW="0" flex="1">
-          <Text fontWeight="bold" textStyle="md" lineClamp={1}>
-            {displayName}
-          </Text>
-          <Text color="fg.muted" textStyle="xs" lineClamp={1}>
+            <Text fontWeight="bold" textStyle="md" lineClamp={1}>
+              {displayName}
+            </Text>
+            <Text color="fg.muted" textStyle="xs" lineClamp={1}>
               {file.originalName} · imported {formatDate(file.importedAt)}
             </Text>
           </Box>
           <HStack gap="2" display={{ base: "none", md: "flex" }} flexShrink="0">
-            {stats && <Tag.Root size="sm"><Tag.Label>{stats}</Tag.Label></Tag.Root>}
+            {stats && (
+              <Tag.Root size="sm">
+                <Tag.Label>{stats}</Tag.Label>
+              </Tag.Root>
+            )}
             {file.distanceM > 0 && (
               <Tag.Root size="sm" colorPalette="green">
                 <Tag.Label>{formatDistance(file.distanceM)}</Tag.Label>

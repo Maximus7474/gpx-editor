@@ -1,6 +1,3 @@
-import { useMemo, useState } from "react";
-import { confirm } from "@tauri-apps/plugin-dialog";
-import { FolderSimpleIcon, FolderPlusIcon, PencilSimpleIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import {
   Box,
   Button,
@@ -15,6 +12,15 @@ import {
   Stack,
   Text,
 } from "@chakra-ui/react";
+import {
+  FolderPlusIcon,
+  FolderSimpleIcon,
+  PencilSimpleIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
+import { confirm } from "@tauri-apps/plugin-dialog";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toaster } from "../../components/ui/toaster";
 import { formatCount, formatDate } from "../../lib/format";

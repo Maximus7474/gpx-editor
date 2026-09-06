@@ -1,3 +1,4 @@
+import { Box, Button, Flex, IconButton, Text, VStack } from "@chakra-ui/react";
 import {
   CaretLineLeftIcon,
   CaretLineRightIcon,
@@ -5,7 +6,6 @@ import {
   GearIcon,
   MapTrifoldIcon,
 } from "@phosphor-icons/react";
-import { Box, Button, Flex, IconButton, Text, VStack } from "@chakra-ui/react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useUiStore } from "../lib/stores/uiStore";
 
@@ -98,14 +98,11 @@ function SidebarNavItem({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const active =
-    item.exact ? location.pathname === item.to : location.pathname.startsWith(item.to);
+  const active = item.exact ? location.pathname === item.to : location.pathname.startsWith(item.to);
 
   return (
     <Box as="li" listStyleType="none" w="full" mt={pinned ? "auto" : undefined}>
-      {pinned && !collapsed && (
-        <Box aria-hidden h="1px" bg="border" mx="1" mb="2" flexShrink="0" />
-      )}
+      {pinned && !collapsed && <Box aria-hidden h="1px" bg="border" mx="1" mb="2" flexShrink="0" />}
       <Button
         variant={active ? "subtle" : "ghost"}
         w="full"

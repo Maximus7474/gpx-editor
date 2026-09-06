@@ -55,7 +55,10 @@ export function buildOrderedPath(doc: GpxDocument): OrderedPath | null {
 }
 
 /** The lat/lon on the ordered path at `distanceM` meters along it. */
-export function positionAtDistance(path: OrderedPath, distanceM: number): { lat: number; lon: number } {
+export function positionAtDistance(
+  path: OrderedPath,
+  distanceM: number,
+): { lat: number; lon: number } {
   const { points, dist } = path;
   if (distanceM <= 0 || points.length === 1) return points[0];
   if (distanceM >= path.totalM) return points[points.length - 1];

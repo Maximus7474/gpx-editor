@@ -1,14 +1,6 @@
-import { useEffect, useState } from "react";
+import { Button, Dialog, Field, IconButton, Input, Stack, Textarea } from "@chakra-ui/react";
 import { XIcon } from "@phosphor-icons/react";
-import {
-  Button,
-  Dialog,
-  Field,
-  IconButton,
-  Input,
-  Stack,
-  Textarea,
-} from "@chakra-ui/react";
+import { useEffect, useState } from "react";
 import type { Project } from "../../lib/types/models";
 
 interface ProjectFormDialogProps {

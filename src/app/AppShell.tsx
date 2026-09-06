@@ -1,6 +1,6 @@
+import { Box, Flex } from "@chakra-ui/react";
 import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
-import { Box, Flex } from "@chakra-ui/react";
 import { useLibraryStore } from "../lib/stores/libraryStore";
 import { useUiStore } from "../lib/stores/uiStore";
 import { Sidebar } from "./Sidebar";
