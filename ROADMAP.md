@@ -2,16 +2,16 @@
 
 ## Phase 1 — View & Organize (current)
 
-- [ ] Project scaffold: Tauri v2 + React + TypeScript + Vite
-- [ ] Chakra UI theme setup + Phosphor Icons integration
-- [ ] App shell: collapsible sidebar + routing (Library / Projects / Settings)
-- [ ] SQLite setup via `tauri-plugin-sql` + initial migration (Project, GpxFile tables)
-- [ ] Import flow: file picker → parse metadata → store in library
-- [ ] Library view: list/grid of imported GPX files, filter by project
-- [ ] Project view: create/rename/delete projects, assign files to a project
-- [ ] GPX viewer: Leaflet map rendering tracks/waypoints/routes for a selected file
-- [ ] Export: copy a library file back out to a user-chosen location
-- [ ] Settings page (placeholder: sidebar behavior, storage location, etc.)
+- [x] Project scaffold: Tauri v2 + React + TypeScript + Vite
+- [x] Chakra UI theme setup + Phosphor Icons integration
+- [x] App shell: collapsible sidebar + routing (Library / Projects / Settings)
+- [x] SQLite setup via `tauri-plugin-sql` + initial migration (Project, GpxFile tables)
+- [x] Import flow: file picker → parse metadata → store in library
+- [x] Library view: list/grid of imported GPX files, filter by project
+- [x] Project view: create/rename/delete projects, assign files to a project
+- [x] GPX viewer: Leaflet map rendering tracks/waypoints/routes for a selected file
+- [x] Export: copy a library file back out to a user-chosen location
+- [x] Settings page (placeholder: sidebar behavior, storage location, etc.)
 
 ## Phase 2 — Create & Edit
 

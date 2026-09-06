@@ -1,17 +1,36 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+mod commands;
+mod db;
+mod gpxmeta;
+
+use tauri::Manager;
+
+use commands::gpx::LibraryDir;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_fs::init())
+        .plugin(
+            tauri_plugin_sql::Builder::default()
+                .add_migrations(db::DB_URL, db::migrations())
+                .build(),
+        )
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_sql::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .setup(|app| {
+            // Imported GPX files live in a managed folder under the app data
+            // directory; SQLite only indexes them.
+            let library_dir = app.path().app_data_dir()?.join("library");
+            std::fs::create_dir_all(&library_dir)?;
+            app.manage(LibraryDir(library_dir));
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::gpx::import_gpx_files,
+            commands::gpx::read_gpx_file,
+            commands::gpx::remove_library_file,
+            commands::gpx::export_gpx_file,
+            commands::gpx::library_dir,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
