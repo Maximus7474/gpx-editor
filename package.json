@@ -10,6 +10,7 @@
     "tauri": "tauri",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
+    "bump-version": "bun run scripts/bump-version.ts",
     "format": "biome format --write .",
     "format:check": "biome format ."
   },
@@ -35,6 +36,7 @@
     "@tauri-apps/cli": "^2",
     "@types/leaflet": "^1.9.22",
     "@types/leaflet-polylinedecorator": "^1.6.5",
+    "@types/node": "^26.4.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^6.0.2",

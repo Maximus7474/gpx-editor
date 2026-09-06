@@ -1,7 +1,15 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
   "files": {
-    "includes": ["src/**", "vite.config.ts", "index.html", "package.json", "biome.json", "!dist"]
+    "includes": [
+      "src/**",
+      "scripts/**",
+      "vite.config.ts",
+      "index.html",
+      "package.json",
+      "biome.json",
+      "!dist"
+    ]
   },
   "formatter": {
     "enabled": true,
