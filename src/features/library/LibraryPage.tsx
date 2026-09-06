@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Files } from "@phosphor-icons/react";
+import { FilesIcon } from "@phosphor-icons/react";
 import {
   Box,
   Button,
@@ -96,7 +96,7 @@ export function LibraryPage() {
           <EmptyState.Root>
             <EmptyState.Content>
               <EmptyState.Indicator>
-                <Files size={36} aria-hidden />
+                <FilesIcon size={36} aria-hidden />
               </EmptyState.Indicator>
               <EmptyState.Title>No GPX files yet</EmptyState.Title>
               <EmptyState.Description>

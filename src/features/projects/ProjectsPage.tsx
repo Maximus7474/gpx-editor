@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { FolderSimple, FolderPlus, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
+import { FolderSimpleIcon, FolderPlusIcon, PencilSimpleIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import {
   Box,
   Button,
@@ -113,7 +113,7 @@ export function ProjectsPage() {
             </Text>
           </Box>
           <Button onClick={openCreate}>
-            <Plus aria-hidden />
+            <PlusIcon aria-hidden />
             New project
           </Button>
         </Flex>
@@ -126,14 +126,14 @@ export function ProjectsPage() {
           <EmptyState.Root>
             <EmptyState.Content>
               <EmptyState.Indicator>
-                <FolderSimple size={36} aria-hidden />
+                <FolderSimpleIcon size={36} aria-hidden />
               </EmptyState.Indicator>
               <EmptyState.Title>No projects yet</EmptyState.Title>
               <EmptyState.Description>
                 Group GPX files into projects — one project per event or route set.
               </EmptyState.Description>
               <Button onClick={openCreate}>
-                <FolderPlus aria-hidden />
+                <FolderPlusIcon aria-hidden />
                 Create your first project
               </Button>
             </EmptyState.Content>
@@ -211,7 +211,7 @@ function ProjectCard({ project, fileCount, onOpen, onRename, onDelete }: Project
                 onRename();
               }}
             >
-              <PencilSimple />
+              <PencilSimpleIcon />
             </IconButton>
             <IconButton
               aria-label={`Delete ${project.name}`}
@@ -223,7 +223,7 @@ function ProjectCard({ project, fileCount, onOpen, onRename, onDelete }: Project
                 onDelete();
               }}
             >
-              <Trash />
+              <TrashIcon />
             </IconButton>
           </HStack>
         </Flex>

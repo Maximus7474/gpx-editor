@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft } from "@phosphor-icons/react";
+import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { Box, Button, Center, Flex, HStack, IconButton, Spinner, Tag, Text } from "@chakra-ui/react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getGpxFile } from "../../lib/db/repository";
@@ -121,7 +121,7 @@ export function GpxViewerPage() {
             size="sm"
             onClick={() => navigate(-1)}
           >
-            <ArrowLeft />
+            <ArrowLeftIcon />
           </IconButton>
           <Box minW="0" flex="1">
           <Text fontWeight="bold" textStyle="md" lineClamp={1}>

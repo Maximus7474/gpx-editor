@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X } from "@phosphor-icons/react";
+import { XIcon } from "@phosphor-icons/react";
 import {
   Button,
   Dialog,
@@ -56,7 +56,7 @@ export function ProjectFormDialog({ open, project, onClose, onSubmit }: ProjectF
             <Dialog.Title>{project ? "Rename project" : "New project"}</Dialog.Title>
             <Dialog.CloseTrigger asChild>
               <IconButton aria-label="Close" variant="ghost" size="sm">
-                <X />
+                <XIcon />
               </IconButton>
             </Dialog.CloseTrigger>
           </Dialog.Header>

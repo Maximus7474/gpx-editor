@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
-import { Database, Moon, Palette, Sun } from "@phosphor-icons/react";
+import { DatabaseIcon, MoonIcon, PaletteIcon, SunIcon } from "@phosphor-icons/react";
 import { Box, Button, Card, HStack, Stack, Text } from "@chakra-ui/react";
 import { useColorMode } from "../../components/ui/color-mode";
 import { getLibraryDir } from "../../lib/ipc";
 import { useUiStore } from "../../lib/stores/uiStore";
 
+/** ToDo: improve version management
+ * - retrieve version from github to review potential updates
+ * - retrieve current build version and display it
+ */
 const APP_VERSION = "0.1.0";
 
 export function SettingsPage() {
@@ -41,7 +45,7 @@ export function SettingsPage() {
         <Card.Root>
           <Card.Header>
             <HStack gap="2">
-              <Palette aria-hidden />
+              <PaletteIcon aria-hidden />
               <Card.Title textStyle="md">Appearance</Card.Title>
             </HStack>
           </Card.Header>
@@ -51,14 +55,14 @@ export function SettingsPage() {
                 variant={colorMode === "light" ? "solid" : "outline"}
                 onClick={() => setColorMode("light")}
               >
-                <Sun aria-hidden />
+                <SunIcon aria-hidden />
                 Light
               </Button>
               <Button
                 variant={colorMode === "dark" ? "solid" : "outline"}
                 onClick={() => setColorMode("dark")}
               >
-                <Moon aria-hidden />
+                <MoonIcon aria-hidden />
                 Dark
               </Button>
             </HStack>
@@ -72,7 +76,7 @@ export function SettingsPage() {
         <Card.Root>
           <Card.Header>
             <HStack gap="2">
-              <Database aria-hidden />
+              <DatabaseIcon aria-hidden />
               <Card.Title textStyle="md">Storage</Card.Title>
             </HStack>
           </Card.Header>

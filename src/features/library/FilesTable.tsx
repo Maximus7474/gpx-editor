@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { confirm, save } from "@tauri-apps/plugin-dialog";
-import { Export, Eye, Trash } from "@phosphor-icons/react";
+import { ExportIcon, EyeIcon, TrashIcon } from "@phosphor-icons/react";
 import { Box, HStack, IconButton, NativeSelect, Table, Text } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 import { toaster } from "../../components/ui/toaster";
@@ -163,7 +163,7 @@ function FileRow({ file }: { file: GpxFile }) {
             size="sm"
             onClick={() => navigate(`/files/${file.id}`)}
           >
-            <Eye />
+            <EyeIcon />
           </IconButton>
           <IconButton
             aria-label={`Export ${file.originalName}`}
@@ -172,7 +172,7 @@ function FileRow({ file }: { file: GpxFile }) {
             disabled={busy}
             onClick={() => void handleExport()}
           >
-            <Export />
+            <ExportIcon />
           </IconButton>
           <IconButton
             aria-label={`Delete ${file.originalName}`}
@@ -181,7 +181,7 @@ function FileRow({ file }: { file: GpxFile }) {
             colorPalette="red"
             onClick={() => void handleDelete()}
           >
-            <Trash />
+            <TrashIcon />
           </IconButton>
         </HStack>
       </Table.Cell>

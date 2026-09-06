@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { CaretDown } from "@phosphor-icons/react";
+import { CaretDownIcon } from "@phosphor-icons/react";
 import { Box, Collapsible, HStack, Text } from "@chakra-ui/react";
 import { useColorModeValue } from "../../components/ui/color-mode";
 import { formatDistance } from "../../lib/format";
@@ -73,7 +73,7 @@ export function ElevationPanel({ doc, hoverDistanceM, onHoverChange }: Elevation
                 _open={{ transform: "rotate(180deg)" }}
                 flexShrink="0"
               >
-                <CaretDown size={18} />
+                <CaretDownIcon size={18} />
               </Collapsible.Indicator>
             </HStack>
           </HStack>
