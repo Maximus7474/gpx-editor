@@ -20,11 +20,8 @@ GPX files/routes.
 | Icons | [Phosphor Icons](https://phosphoricons.com) | Use the React package (`@phosphor-icons/react`); pick one consistent weight (default: `regular`) across the app |
 | Mapping | Leaflet + OpenStreetMap tiles | `react-leaflet` wrapper preferred over raw Leaflet calls |
 | Local persistence | SQLite via `tauri-plugin-sql` | GPX files themselves stay as files on disk; SQLite stores the library/project index and metadata |
-| GPX parsing | TBD — see "Open Questions" | Needs to run in the frontend (for preview) and/or Rust side |
-| State management | TBD — see "Open Questions" | |
-
-> Anything marked TBD is a placeholder default until confirmed — agents should
-> flag it rather than silently deciding.
+| GPX parsing | Rust `gpx` crate + frontend DOMParser | Rust parses metadata at import (index); the frontend parses full detail for the map via a typed TS parser in `src/lib/gpx` |
+| State management | Zustand | Stores live in `src/lib/stores`; UI prefs persist to the SQLite `settings` table |
 
 ## Project Phases
 
@@ -37,9 +34,7 @@ explicitly asked — see `ROADMAP.md`.
 
 ## Repository Conventions
 
-- **Package manager:** TBD — default assumption is `pnpm` unless a lockfile
-  says otherwise. Check for an existing lockfile before running install
-  commands.
+- **Package manager:** Bun
 - **Formatting/linting:** Prettier + ESLint (React/TypeScript configs).
   Run the project's lint/format scripts before considering a task done.
 - **Types:** TypeScript strict mode. Avoid `any`; define shared types for
@@ -62,14 +57,16 @@ src/
     gpx-viewer/   # map + track detail viewing
     settings/     # app settings page
   lib/
-    db/           # tauri-plugin-sql client + typed queries
-    gpx/          # GPX parsing/serialization helpers
+    db/           # tauri-plugin-sql client + typed queries (repository)
+    gpx/          # TS GPX parsing + geometry helpers
+    ipc.ts        # typed invoke wrappers for Tauri commands
+    stores/       # Zustand stores (library, UI prefs)
     types/        # shared TypeScript types (Gpx, Track, Project, etc.)
-  hooks/
 src-tauri/
   src/
-    commands/     # Tauri commands (file I/O, GPX read/write)
-    db/           # migrations
+    commands/     # Tauri commands (file I/O: import/read/export/delete)
+    db/           # migrations (projects, gpx_files, settings)
+    gpxmeta/      # Rust GPX metadata extraction for the index
 ```
 
 ## Do
@@ -90,14 +87,19 @@ src-tauri/
   disk.
 - Don't build Phase 2 (editing) UI/state until Phase 1 is agreed complete.
 
-## Open Questions for the Maintainer
+## Resolved Decisions (recorded 2026-09)
 
-These are flagged as unresolved — ask before assuming:
+- **Package manager:** Bun (lockfile: `bun.lock`).
+- **State management:** Zustand (`src/lib/stores`).
+- **GPX parsing:** Rust `gpx` crate extracts import metadata (commands in
+  `src-tauri/src/gpxmeta`); the frontend parses full file detail for the map
+  with a dependency-free DOMParser parser (`src/lib/gpx/parseGpx.ts`). The
+  parser is the single shared type source that Phase 2 editing will extend.
+- **GPX file storage:** a managed `library/` folder under the app-data
+  directory. Import copies files there; rows in SQLite reference those copies.
+- **UI preferences:** stored in the SQLite `settings` table (e.g. sidebar
+  collapse state).
 
-- Package manager (npm/pnpm/yarn)?
-- Preferred state management (React Context, Zustand, Redux Toolkit, Jotai)?
-- Which GPX parsing library (e.g. `gpxparser`, `togeojson`, a Rust crate like
-  `gpx`) — parse on frontend, Rust backend, or both?
-- Where should GPX files physically live — a user-chosen folder, or a
-  managed app-data directory?
+## Open Question for the Maintainer
+
 - Testing stack (Vitest? Playwright/Tauri driver for e2e?)
