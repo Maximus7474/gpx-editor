@@ -12,7 +12,8 @@
 - [x] GPX viewer: Leaflet map rendering tracks/waypoints/routes for a selected file
 - [x] GPX viewer: elevation profile chart (distance vs. height, hover tooltip, climb/descent stats, cross-highlighted with the map on hover)
 - [x] Export: copy a library file back out to a user-chosen location
-- [x] Settings page (placeholder: sidebar behavior, storage location, etc.)
+- [x] Settings page (sidebar behavior, storage location, etc.)
+- [x] Version info + update checks: build version from Rust, GitHub latest-release comparison
 
 ## Phase 2 — Create & Edit
 

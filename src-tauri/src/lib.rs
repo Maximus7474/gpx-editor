@@ -5,6 +5,7 @@ mod gpxmeta;
 use tauri::Manager;
 
 use commands::gpx::LibraryDir;
+use commands::updates::UpdateCheckCache;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -22,6 +23,7 @@ pub fn run() {
             let library_dir = app.path().app_data_dir()?.join("library");
             std::fs::create_dir_all(&library_dir)?;
             app.manage(LibraryDir(library_dir));
+            app.manage(UpdateCheckCache(std::sync::Mutex::new(None)));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -30,6 +32,8 @@ pub fn run() {
             commands::gpx::remove_library_file,
             commands::gpx::export_gpx_file,
             commands::gpx::library_dir,
+            commands::updates::app_version,
+            commands::updates::check_for_updates,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

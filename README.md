@@ -47,6 +47,12 @@ Releases are automated with two GitHub Actions workflows:
 4. Review the installers and notes on the Releases page, then publish the
    draft.
 
+Once a release is published, the app's **Settings → Updates** card shows it:
+users on older builds see an update prompt with a link to the release page.
+The check runs on the Rust side (first visit to Settings hits the GitHub API,
+results are cached for the session) and compares the running build's version
+against the latest release tag.
+
 You can also run the Release workflow manually from the Actions tab (it
 builds whatever the current app version is, so bump the version first).
 
