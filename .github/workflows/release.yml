@@ -60,3 +60,24 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+  # Publish the draft release once every platform has uploaded its binaries.
+  # Runs only on tag pushes (the normal release flow); manual dispatch still
+  # leaves a draft for review.
+  publish-release:
+    needs: publish-tauri
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Publish the draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          gh release edit "v${VERSION}" --draft=false
+          gh release view "v${VERSION}" --json tagName,name,draft \
+            --jq '{tagName, name, draft}'
