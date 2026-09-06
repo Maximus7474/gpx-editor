@@ -23,6 +23,10 @@ interface LibraryState {
   createProject: (name: string, description: string) => Promise<Project>;
   renameProject: (id: number, name: string) => Promise<void>;
   deleteProject: (id: number) => Promise<void>;
+  /** Insert a freshly saved trace into the in-memory list (front of list). */
+  addFile: (file: GpxFile) => void;
+  /** Replace a file entry after its metadata/name changed (in-editor re-save). */
+  updateFile: (file: GpxFile) => void;
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -97,4 +101,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const files = await repo.listGpxFiles();
     set({ projects, files });
   },
+
+  addFile: (file) => set({ files: [file, ...get().files.filter((f) => f.id !== file.id)] }),
+  updateFile: (file) => set({ files: get().files.map((f) => (f.id === file.id ? file : f)) }),
 }));

@@ -27,6 +27,8 @@ export interface Route {
 
 export interface Waypoint extends TrackPoint {
   name?: string;
+  /** Free-text GPX `<type>` (e.g. a category label like "hydration"). */
+  type?: string;
 }
 
 export interface GpxDocument {

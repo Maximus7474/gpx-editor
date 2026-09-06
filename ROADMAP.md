@@ -17,11 +17,24 @@
 
 ## Phase 2 — Create & Edit
 
-- [ ] In-app GPX creation (draw a new track/route on the map)
-- [ ] Editing existing tracks/waypoints (drag points, add/remove, rename)
-- [ ] GPX serialization back to valid XML
-- [ ] Save / save-as, with SQLite metadata re-sync after edits
-- [ ] Undo/redo, unsaved-changes handling
+### Trace editor workspace (in progress)
+
+- [x] Trace editor workspace: map + collapsible right-hand details panel, tools in the top right (`/trace-editor`)
+- [x] In-app trace creation: click the map to lay route positions (session-only, in-memory)
+- [x] Waypoints: drop/drag/rename/recategorize/delete, with categories (checkpoint, hydration, first aid, start, finish, parking)
+- [x] Full undo/redo history over the session (snapshot stack)
+
+- [x] GPX serialization back to valid XML (`src/lib/gpx/serializeGpx.ts`: `<gpx>`/`<trk>`/`<trkseg>`/`<wpt>`, XML-escaped, symmetric with `parseGpx`)
+- [x] Save to library: Rust `save_trace` writes the file + re-extracts metadata; DB row insert on first save, overwrite + metadata/name re-sync on re-save
+- [x] Save a copy…: native save dialog + Rust `write_trace_to_path` (no library/DB involvement)
+
+- [x] Live elevation profile while drawing: elevations auto-fetched (opentopodata SRTM, cached, offline-safe) and re-computed on every change
+- [x] Per-waypoint kilometer markers: distance along the trace shown on the profile, the waypoint list, and as labels on the map markers
+
+### Remaining
+
+- [ ] Unsaved-changes guard on navigation
+- [ ] Editing existing library tracks/waypoints (drag points, add/remove)
 
 ## Later / Unscoped Ideas
 

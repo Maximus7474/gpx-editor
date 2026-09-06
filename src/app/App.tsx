@@ -4,6 +4,7 @@ import { LibraryPage } from "../features/library/LibraryPage";
 import { ProjectDetailPage } from "../features/projects/ProjectDetailPage";
 import { ProjectsPage } from "../features/projects/ProjectsPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
+import { TraceEditorPage } from "../features/trace-editor/TraceEditorPage";
 import { AppShell } from "./AppShell";
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/files/:fileId" element={<GpxViewerPage />} />
+          <Route path="/trace-editor" element={<TraceEditorPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

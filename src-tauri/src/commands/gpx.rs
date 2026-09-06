@@ -151,6 +151,82 @@ pub async fn export_gpx_file(
     Ok(())
 }
 
+/// Serialize an in-editor trace (GPX XML) into the managed library and
+/// re-extract its metadata so the SQLite index stays in sync. Pass
+/// `file_path` to re-save over an existing library file (e.g. after further
+/// edits); without it a new uniquely-named file is created.
+#[tauri::command]
+pub async fn save_trace(
+    library: State<'_, LibraryDir>,
+    xml: String,
+    desired_name: String,
+    file_path: Option<String>,
+) -> Result<ImportedGpx, String> {
+    if xml.trim().is_empty() {
+        return Err("cannot save an empty GPX document".into());
+    }
+
+    let dir = library.0.clone();
+    let (dest, original_name, remove_on_error) = match &file_path {
+        Some(path) => {
+            let dest = resolve_in_library(&dir, path)?;
+            let name = dest
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("trace.gpx")
+                .to_string();
+            (dest, name, false)
+        }
+        None => {
+            ensure_library_dir(&library);
+            let name = sanitize_trace_name(&desired_name);
+            (dir.join(unique_name(&name)), name, true)
+        }
+    };
+
+    let dest_for_task = dest.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        fs::write(&dest_for_task, xml.as_bytes())
+            .map_err(|e| format!("cannot write GPX file: {e}"))?;
+        match gpxmeta::extract_metadata(&dest_for_task) {
+            Ok(metadata) => Ok(metadata),
+            Err(err) => {
+                // Only delete files we just created — never a valid pre-existing
+                // library file whose re-save failed.
+                if remove_on_error {
+                    let _ = fs::remove_file(&dest_for_task);
+                }
+                Err(err)
+            }
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map(|metadata| ImportedGpx {
+        file_path: dest.to_string_lossy().into_owned(),
+        original_name,
+        metadata,
+    })
+}
+
+/// Write a serialized GPX document to a user-chosen destination (native save
+/// dialog on the frontend picks the path). Used by "Save a copy…" — no
+/// library/DB involvement.
+#[tauri::command]
+pub async fn write_trace_to_path(dest_path: String, xml: String) -> Result<(), String> {
+    if xml.trim().is_empty() {
+        return Err("cannot save an empty GPX document".into());
+    }
+    let dest = PathBuf::from(dest_path);
+    if dest.is_dir() {
+        return Err("destination is a directory".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || fs::write(&dest, xml.as_bytes()))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| format!("cannot write GPX file: {e}"))
+}
+
 /// Absolute path of the managed library folder (shown on the Settings page).
 #[tauri::command]
 pub fn library_dir(library: State<'_, LibraryDir>) -> Result<String, String> {
@@ -171,6 +247,70 @@ fn unique_name(original: &str) -> String {
         .map(|d| d.as_nanos())
         .unwrap_or(0);
     format!("{nanos}_{original}")
+}
+
+/// Turn a user-entered trace name into a safe `.gpx` file name: trim, replace
+/// path-hostile characters, and guarantee the extension.
+fn sanitize_trace_name(raw: &str) -> String {
+    let name: String = raw
+        .trim()
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ' ' | '.') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let name = name.trim().trim_matches('.').trim();
+    if name.is_empty() {
+        return "trace.gpx".to_string();
+    }
+    if name.ends_with(".gpx") {
+        name.to_string()
+    } else {
+        format!("{name}.gpx")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_trace_names() {
+        assert_eq!(sanitize_trace_name("  My Course  "), "My Course.gpx");
+        assert_eq!(sanitize_trace_name("a/b:c*gpx"), "a_b_c_gpx.gpx");
+        assert_eq!(sanitize_trace_name("trail.gpx"), "trail.gpx");
+        assert_eq!(sanitize_trace_name(".."), "trace.gpx");
+        assert_eq!(sanitize_trace_name(""), "trace.gpx");
+    }
+
+    #[test]
+    fn saved_document_round_trips_through_metadata_extraction() {
+        let dir = std::env::temp_dir().join(format!("gpx_save_test_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("sample.gpx");
+        let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>My Course</name></metadata>
+  <trk><name>My Course</name><trkseg>
+    <trkpt lat="48.858950" lon="2.277020" />
+    <trkpt lat="48.859500" lon="2.279000" />
+  </trkseg></trk>
+  <wpt lat="48.858950" lon="2.277020"><name>Start</name><type>Start</type></wpt>
+</gpx>"#;
+        std::fs::write(&path, xml).unwrap();
+        let meta = gpxmeta::extract_metadata(&path).unwrap();
+        assert_eq!(meta.name.as_deref(), Some("My Course"));
+        assert_eq!(meta.track_count, 1);
+        assert_eq!(meta.waypoint_count, 1);
+        assert!(meta.distance_m > 0.0);
+        let bounds = meta.bounds.unwrap();
+        assert!(bounds.min_lat <= 48.8595 && bounds.max_lat >= 48.8595);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
 
 /// Reject any path that does not resolve inside the managed library so these
