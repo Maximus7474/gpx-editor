@@ -4,6 +4,7 @@ import { memo, useEffect, useMemo, useRef } from "react";
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import { buildOrderedPath, type OrderedPath, positionAtDistance } from "../../lib/gpx/path";
 import type { GeoBounds, GpxDocument, Waypoint } from "../../lib/types/gpx";
+import { CourseMarkers } from "./CourseMarkers";
 import { DirectionMarkers } from "./DirectionMarkers";
 
 import "leaflet/dist/leaflet.css";
@@ -100,8 +101,8 @@ export function MapView({ doc, bounds, hoverDistanceM, onHoverChange }: MapViewP
         color="fg.muted"
       >
         <LegendDot color={TRACK_COLOR} label="Track" />
-        <LegendDot color={ROUTE_COLOR} label="Route" dashed />
-        <LegendDot color={WAYPOINT_COLOR} label="Waypoint" />
+        {doc.routes.length > 0 && <LegendDot color={ROUTE_COLOR} label="Route" dashed />}
+        {doc.waypoints.length > 0 && <LegendDot color={WAYPOINT_COLOR} label="Waypoint" />}
       </HStack>
     </Box>
   );
@@ -129,6 +130,7 @@ const StaticLayers = memo(function StaticLayers({ path, waypoints }: StaticLayer
           />
         ) : null,
       )}
+      <CourseMarkers path={path} />
       {waypoints.map((waypoint, index) => (
         <CircleMarker
           key={waypoint.name ?? `${waypoint.lat},${waypoint.lon}`}
