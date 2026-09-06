@@ -20,6 +20,7 @@ import { ImportButton } from "../../components/ImportButton";
 import { toaster } from "../../components/ui/toaster";
 import { formatCount } from "../../lib/format";
 import { useLibraryStore } from "../../lib/stores/libraryStore";
+import { fileDisplayName } from "../../lib/types/models";
 import { FilesTable } from "../library/FilesTable";
 import { ProjectFormDialog } from "./ProjectFormDialog";
 
@@ -208,7 +209,7 @@ export function ProjectDetailPage() {
                   <option value="">Choose a file to add…</option>
                   {unassignedFiles.map((file) => (
                     <option key={file.id} value={file.id}>
-                      {file.originalName}
+                      {fileDisplayName(file)}
                     </option>
                   ))}
                 </NativeSelect.Field>

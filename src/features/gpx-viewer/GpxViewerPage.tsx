@@ -18,7 +18,7 @@ import { documentBounds } from "../../lib/gpx/geometry";
 import { parseGpx } from "../../lib/gpx/parseGpx";
 import { readGpxFile } from "../../lib/ipc";
 import type { GpxDocument } from "../../lib/types/gpx";
-import type { GpxFile } from "../../lib/types/models";
+import { fileDisplayName, type GpxFile } from "../../lib/types/models";
 import { ElevationPanel } from "./ElevationChart";
 import { MapView } from "./MapView";
 
@@ -112,7 +112,7 @@ export function GpxViewerPage() {
   }
 
   const { file, doc } = state;
-  const displayName = doc.metadata.name ?? file.originalName;
+  const displayName = doc.metadata.name ?? fileDisplayName(file);
   const stats = [
     file.trackCount > 0 ? formatCount(file.trackCount, "track") : null,
     file.routeCount > 0 ? formatCount(file.routeCount, "route") : null,
