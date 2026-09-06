@@ -10,6 +10,7 @@
 - [x] Library view: list/grid of imported GPX files, filter by project
 - [x] Project view: create/rename/delete projects, assign files to a project
 - [x] GPX viewer: Leaflet map rendering tracks/waypoints/routes for a selected file
+- [x] GPX viewer: elevation profile chart (distance vs. height, hover tooltip, climb/descent stats)
 - [x] Export: copy a library file back out to a user-chosen location
 - [x] Settings page (placeholder: sidebar behavior, storage location, etc.)
 
@@ -24,7 +25,7 @@
 ## Later / Unscoped Ideas
 
 - Multi-file comparison view (overlay multiple tracks on one map)
-- Elevation profile charts per track
+- Per-track elevation profile series (multiple series on one chart)
 - Import from other formats (KML, TCX) with conversion to GPX
 - Cloud sync / sharing between devices (currently local-only by design)
 

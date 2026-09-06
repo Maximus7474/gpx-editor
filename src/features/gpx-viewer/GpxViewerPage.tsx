@@ -9,6 +9,7 @@ import { documentBounds } from "../../lib/gpx/geometry";
 import { formatCount, formatDate, formatDistance } from "../../lib/format";
 import type { GpxDocument } from "../../lib/types/gpx";
 import type { GpxFile } from "../../lib/types/models";
+import { ElevationPanel } from "./ElevationChart";
 import { MapView } from "./MapView";
 
 type LoadState =
@@ -140,6 +141,8 @@ export function GpxViewerPage() {
       <Box flex="1" minH="0">
         <MapView doc={doc} bounds={bounds} />
       </Box>
+
+      <ElevationPanel doc={doc} />
     </Flex>
   );
 }
