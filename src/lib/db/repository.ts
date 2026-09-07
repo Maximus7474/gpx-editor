@@ -59,6 +59,28 @@ export async function getGpxFile(id: number): Promise<GpxFile | null> {
   return rows.length > 0 ? rowToGpxFile(rows[0]) : null;
 }
 
+const INSERT_GPX_SQL = `INSERT INTO gpx_files
+   (project_id, file_path, original_name, name, track_count, waypoint_count,
+    route_count, distance_m, bounds_min_lat, bounds_min_lon,
+    bounds_max_lat, bounds_max_lon)
+ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`;
+
+function fileColumns(file: ImportedGpx): unknown[] {
+  return [
+    file.filePath,
+    file.originalName,
+    file.name ?? null,
+    file.trackCount,
+    file.waypointCount,
+    file.routeCount,
+    file.distanceM,
+    file.bounds?.minLat ?? null,
+    file.bounds?.minLon ?? null,
+    file.bounds?.maxLat ?? null,
+    file.bounds?.maxLon ?? null,
+  ];
+}
+
 /** Insert files copied & parsed by the Rust import command, optionally assigned to a project. */
 export async function insertGpxFiles(
   files: ImportedGpx[],
@@ -67,27 +89,62 @@ export async function insertGpxFiles(
   if (files.length === 0) return;
   const db = await getDb();
   for (const file of files) {
-    await db.execute(
-      `INSERT INTO gpx_files
-         (project_id, file_path, original_name, track_count, waypoint_count,
-          route_count, distance_m, bounds_min_lat, bounds_min_lon,
-          bounds_max_lat, bounds_max_lon)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [
-        projectId,
-        file.filePath,
-        file.originalName,
-        file.trackCount,
-        file.waypointCount,
-        file.routeCount,
-        file.distanceM,
-        file.bounds?.minLat ?? null,
-        file.bounds?.minLon ?? null,
-        file.bounds?.maxLat ?? null,
-        file.bounds?.maxLon ?? null,
-      ],
-    );
+    await db.execute(INSERT_GPX_SQL, [projectId, ...fileColumns(file)]);
   }
+}
+
+/**
+ * Insert one saved trace and return the created row (the editor's save flow
+ * needs the new id so a later save can update the same row).
+ */
+export async function insertGpxFileRow(
+  file: ImportedGpx,
+  projectId: number | null,
+): Promise<GpxFile> {
+  const db = await getDb();
+  const result = await db.execute(INSERT_GPX_SQL, [projectId, ...fileColumns(file)]);
+  const id = Number(result.lastInsertId);
+  const rows = (await db.select<SqlRow[]>("SELECT * FROM gpx_files WHERE id = $1", [
+    id,
+  ])) as SqlRow[];
+  if (rows.length === 0) throw new Error("GPX file insert failed.");
+  return rowToGpxFile(rows[0]);
+}
+
+/**
+ * Re-sync a saved file's index metadata after in-editor edits overwrote it on
+ * disk (same path, updated counts/distance/bounds + display name).
+ */
+export async function updateGpxFileMetadata(
+  id: number,
+  file: ImportedGpx,
+  displayName: string,
+): Promise<GpxFile> {
+  const db = await getDb();
+  await db.execute(
+    `UPDATE gpx_files
+        SET name = $1, track_count = $2, waypoint_count = $3, route_count = $4,
+            distance_m = $5, bounds_min_lat = $6, bounds_min_lon = $7,
+            bounds_max_lat = $8, bounds_max_lon = $9
+      WHERE id = $10`,
+    [
+      displayName,
+      file.trackCount,
+      file.waypointCount,
+      file.routeCount,
+      file.distanceM,
+      file.bounds?.minLat ?? null,
+      file.bounds?.minLon ?? null,
+      file.bounds?.maxLat ?? null,
+      file.bounds?.maxLon ?? null,
+      id,
+    ],
+  );
+  const rows = (await db.select<SqlRow[]>("SELECT * FROM gpx_files WHERE id = $1", [
+    id,
+  ])) as SqlRow[];
+  if (rows.length === 0) throw new Error("GPX file update failed.");
+  return rowToGpxFile(rows[0]);
 }
 
 export async function deleteGpxFile(id: number): Promise<void> {

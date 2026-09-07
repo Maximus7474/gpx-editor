@@ -31,7 +31,10 @@ pub fn run() {
             commands::gpx::read_gpx_file,
             commands::gpx::remove_library_file,
             commands::gpx::export_gpx_file,
+            commands::gpx::save_trace,
+            commands::gpx::write_trace_to_path,
             commands::gpx::library_dir,
+            commands::elevation::lookup_elevations,
             commands::updates::app_version,
             commands::updates::check_for_updates,
         ])

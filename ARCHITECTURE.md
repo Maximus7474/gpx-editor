@@ -135,14 +135,40 @@ interface TrackPoint {
    and routes as polylines and waypoints as markers, fit to the document's
    bounds.
 
-## Phase 2 Considerations (editing — not built yet)
+## Phase 2 (in progress) — Trace editor workspace
 
-- Editing requires a mutable in-memory representation of `GpxDocument`,
-  a serializer back to valid GPX XML, and a save path (overwrite vs.
-  save-as) that keeps the SQLite index in sync (re-run metadata
-  extraction after save).
-- Undo/redo and unsaved-changes warnings will matter once editing exists;
-  not needed for Phase 1.
+Editing has started as an in-memory **trace editor workspace** at
+`/trace-editor` (Phase 1 remains view-only). Positions and waypoints live in a
+session-only Zustand store (`src/lib/stores/traceEditorStore.ts`); the map
+(`src/features/trace-editor/EditorMap.tsx`) places route positions on click and
+waypoints as draggable, category-colored markers; a collapsible right-hand
+panel lists both; a snapshot-based history drives Undo/Redo. Geometry types
+are in `src/lib/types/trace.ts` (vertices reuse `TrackPoint` so they serialize
+straight into a GPX track later).
+
+Serialization + saving are in place: `src/lib/gpx/serializeGpx.ts` turns the
+editor state (or any `GpxDocument`) back into GPX 1.1 XML, symmetric with
+`parseGpx`. Saving to the library goes through Rust (`save_trace` writes the
+file and re-runs `gpxmeta::extract_metadata` so the index stays in sync; the
+TS repository inserts the row on first save and updates metadata/name on
+re-save). "Save a copy…" also saves in-app: it writes a duplicate as a new
+library file (new row each time) instead of prompting for a disk location —
+the `write_trace_to_path` command still exists for writing to an arbitrary
+user-chosen path, but the editor no longer uses it.
+
+Elevation: drawn positions carry no elevation, so the editor enriches them in
+`src/lib/elevation.ts` via the free opentopodata SRTM API. The fetch runs in a
+Rust command (`commands/elevation.rs`) because the API sends no CORS headers
+— same reason the update check lives on the Rust side. The frontend caches
+per coordinate (debounced in the store, offline-safe — failures stay uncached
+and render as a flat distance-only profile). Waypoints get km markers everywhere
+(profile, list, map labels) via `distanceAlongTraceM` in
+`src/lib/gpx/geometry.ts`.
+
+Still to come (Phase 2 remainder):
+
+- Unsaved-changes warning on navigation.
+- Loading existing library files into the editor (drag/edit points).
 
 ## Resolved Decisions (recorded 2026-09)
 

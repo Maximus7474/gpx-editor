@@ -33,7 +33,12 @@ export function parseGpx(xml: string): GpxDocument {
 
   const waypoints: Waypoint[] = Array.from(doc.getElementsByTagName("wpt")).map((wpt) => {
     const point = parsePoint(wpt);
-    return { ...point, name: text(child(wpt, "name")) };
+    const waypoint: Waypoint = { ...point };
+    const name = text(child(wpt, "name"));
+    if (name !== undefined) waypoint.name = name;
+    const type = text(child(wpt, "type"));
+    if (type !== undefined) waypoint.type = type;
+    return waypoint;
   });
 
   return {

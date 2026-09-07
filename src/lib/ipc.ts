@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ImportResult } from "./types/models";
+import type { ImportedGpx, ImportResult } from "./types/models";
 
 /**
  * Thin typed wrappers over the Rust commands in src-tauri/src/commands/gpx.rs.
@@ -27,6 +27,24 @@ export function exportGpxFile(sourcePath: string, destPath: string): Promise<voi
 /** Absolute path of the managed library folder (Settings page). */
 export function getLibraryDir(): Promise<string> {
   return invoke<string>("library_dir");
+}
+
+/**
+ * Write a serialized trace into the managed library (Rust also re-extracts
+ * the metadata for the SQLite index). Pass `filePath` to re-save over an
+ * existing library file instead of creating a new one.
+ */
+export function saveTraceToLibrary(
+  xml: string,
+  desiredName: string,
+  filePath?: string,
+): Promise<ImportedGpx> {
+  return invoke<ImportedGpx>("save_trace", { xml, desiredName, filePath: filePath ?? null });
+}
+
+/** Write a serialized trace to a user-chosen path (Save a copy…). */
+export function writeTraceToPath(destPath: string, xml: string): Promise<void> {
+  return invoke<void>("write_trace_to_path", { destPath, xml });
 }
 
 /** Version of the running build, reported by the Rust side (Cargo.toml). */

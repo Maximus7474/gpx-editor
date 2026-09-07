@@ -2,6 +2,7 @@ import { Box, Button, Flex, IconButton, Text, VStack } from "@chakra-ui/react";
 import {
   CaretLineLeftIcon,
   CaretLineRightIcon,
+  CompassToolIcon,
   FolderSimpleIcon,
   GearIcon,
   MapTrifoldIcon,
@@ -19,6 +20,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: "Library", to: "/", icon: MapTrifoldIcon, exact: true },
   { label: "Projects", to: "/projects", icon: FolderSimpleIcon },
+  { label: "Trace editor", to: "/trace-editor", icon: CompassToolIcon, exact: true },
 ];
 
 const SETTINGS: NavItem = { label: "Settings", to: "/settings", icon: GearIcon, exact: true };
