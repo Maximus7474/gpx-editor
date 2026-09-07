@@ -1,6 +1,6 @@
 # ROADMAP.md
 
-## Phase 1 — View & Organize (current)
+## Phase 1 — View & Organize (done)
 
 - [x] Project scaffold: Tauri v2 + React + TypeScript + Vite
 - [x] Chakra UI theme setup + Phosphor Icons integration
@@ -15,7 +15,7 @@
 - [x] Settings page (sidebar behavior, storage location, etc.)
 - [x] Version info + update checks: build version from Rust, GitHub latest-release comparison
 
-## Phase 2 — Create & Edit
+## Phase 2 — Create & Edit (current)
 
 ### Trace editor workspace (in progress)
 
@@ -34,7 +34,32 @@
 ### Remaining
 
 - [ ] Unsaved-changes guard on navigation
-- [ ] Editing existing library tracks/waypoints (drag points, add/remove)
+- [ ] Editing existing library tracks/waypoints: load a library file into the editor, drag/add/remove points and waypoints, save back to the same file
+
+## Phase 3 — Smarter creation tools
+
+- [ ] Snap to paths: fetch nearby ways from the OSM Overpass API (free, no key) and snap drawn vertices/waypoints onto them; toggleable while drawing
+- [ ] Route following via OSRM: pick a start/end point and a profile (driving / cycling / hiking), insert the road-following polyline into the trace
+- [ ] Track cleanup tools: smoothing, simplification (Douglas–Peucker), stray-point removal, reverse direction, split track at a point
+- [ ] Grade-colored elevation profile (color the profile line by steepness) + climb categorization — helps plan aid stations on climbs
+
+## Phase 4 — Maps & Offline
+
+- [ ] Map type chooser: OpenStreetMap, satellite, terrain, dark — persisted per user in settings
+- [ ] Offline tile packs: draw a region on the map, download its tiles to app data (Rust side), storage manager with size estimates, offline indicator; viewer/editor fall back to cached tiles without network
+
+## Phase 5 — Context Actions & Sharing
+
+- [ ] Map right-click context menu: open location in Google Street View (browser), copy coordinates, drop waypoint here
+- [ ] More export formats: KML, TCX, GeoJSON, waypoints as CSV
+- [ ] Printable course card (PDF): map + elevation profile + waypoint/aid-station table
+- [ ] Bulk waypoint import from CSV (checkpoints / hydration stations planned in a spreadsheet)
+
+## Phase 6 — Mobile (Tauri native, iOS/Android)
+
+- [ ] Tauri mobile port: touch-first shell, gestures, platform toolchains (Xcode / Android SDK)
+- [ ] Live GPS tracking mode: show current position on the trace
+- [ ] Offline-first mobile experience (Phase 4 tile packs + elevation cache, no network needed) — the GPS-companion use case
 
 ## Later / Unscoped Ideas
 
@@ -42,6 +67,9 @@
 - Per-track elevation profile series (multiple series on one chart)
 - Import from other formats (KML, TCX) with conversion to GPX
 - Cloud sync / sharing between devices (currently local-only by design)
+- Library backup/restore (export the whole library as an archive)
+- Keyboard shortcuts
+- i18n / multi-language UI
 
 <!--
     Keep this file updated as scope shifts — it's the quick-glance status
