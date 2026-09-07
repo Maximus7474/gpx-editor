@@ -1,6 +1,5 @@
 import { Box, Button, Center, Dialog, Flex, HStack, IconButton, Tag, Text } from "@chakra-ui/react";
 import { ArrowLeftIcon } from "@phosphor-icons/react";
-import { save } from "@tauri-apps/plugin-dialog";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toaster } from "../../components/ui/toaster";
@@ -8,7 +7,7 @@ import { insertGpxFileRow, updateGpxFileMetadata } from "../../lib/db/repository
 import { formatDistance } from "../../lib/format";
 import { elevationProfile } from "../../lib/gpx/profile";
 import { serializeGpxDocument, traceToGpxDocument } from "../../lib/gpx/serializeGpx";
-import { saveTraceToLibrary, writeTraceToPath } from "../../lib/ipc";
+import { saveTraceToLibrary } from "../../lib/ipc";
 import { useLibraryStore } from "../../lib/stores/libraryStore";
 import {
   type SavedTraceFile,
@@ -23,8 +22,6 @@ import { EditorToolbar } from "./EditorToolbar";
 import { SaveTraceDialog } from "./SaveTraceDialog";
 import { TraceElevationPanel } from "./TraceElevationPanel";
 import { WaypointDialog } from "./WaypointDialog";
-
-const GPX_FILTERS = [{ name: "GPX files", extensions: ["gpx"] }];
 
 /**
  * Trace creator/editor workspace (Phase 2, milestone 1). The session is
@@ -48,6 +45,7 @@ export function TraceEditorPage() {
   const unsaved = hasContent && !saved;
   const [clearOpen, setClearOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
   // Open the details panel on roomy windows, keep it collapsed on narrow ones
   // so the map (and the drawing surface) keeps the space.
   const [panelOpen, setPanelOpen] = useState(() => {
@@ -128,24 +126,20 @@ export function TraceEditorPage() {
     }
   }
 
-  async function handleSaveAs() {
-    const name = savedFile?.name ?? "New trace";
+  async function handleSaveCopy(name: string, projectId: number | null) {
     try {
-      const destPath = await save({
-        title: "Save GPX file",
-        defaultPath: defaultGpxFileName(name),
-        filters: GPX_FILTERS,
-      });
-      if (!destPath) return;
       const xml = serializeGpxDocument(traceToGpxDocument(name, points, waypoints));
-      await writeTraceToPath(destPath, xml);
-      toaster.create({ title: "GPX file saved", description: destPath, type: "success" });
+      const written = await saveTraceToLibrary(xml, name);
+      const created = await insertGpxFileRow({ ...written, name }, projectId);
+      useLibraryStore.getState().addFile(created);
+      toaster.create({ title: "Copy saved to library", description: name, type: "success" });
     } catch (error) {
       toaster.create({
         title: "Save failed",
         description: error instanceof Error ? error.message : String(error),
         type: "error",
       });
+      throw error;
     }
   }
 
@@ -190,7 +184,7 @@ export function TraceEditorPage() {
             onTogglePanel={() => setPanelOpen((open) => !open)}
             onRequestClear={() => setClearOpen(true)}
             onSave={() => setSaveOpen(true)}
-            onSaveAs={() => void handleSaveAs()}
+            onSaveAs={() => setCopyOpen(true)}
             canSave={unsaved}
             canSaveAs={hasContent}
           />
@@ -279,6 +273,14 @@ export function TraceEditorPage() {
         onSave={handleSaveTrace}
       />
 
+      <SaveTraceDialog
+        open={copyOpen}
+        defaultName={savedFile ? `${savedFile.name} copy` : "New trace"}
+        allowProject
+        onClose={() => setCopyOpen(false)}
+        onSave={handleSaveCopy}
+      />
+
       {/* Clear-confirmation dialog */}
       <Dialog.Root
         open={clearOpen}
@@ -323,9 +325,4 @@ function toolHint(tool: EditorTool): string {
     case "select":
       return "Click a point or waypoint to select it; double-click a waypoint to edit";
   }
-}
-
-function defaultGpxFileName(name: string): string {
-  const safe = name.trim().replace(/[\\/:*?"<>|]/g, "_");
-  return safe.endsWith(".gpx") ? safe : `${safe || "trace"}.gpx`;
 }

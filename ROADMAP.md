@@ -26,7 +26,7 @@
 
 - [x] GPX serialization back to valid XML (`src/lib/gpx/serializeGpx.ts`: `<gpx>`/`<trk>`/`<trkseg>`/`<wpt>`, XML-escaped, symmetric with `parseGpx`)
 - [x] Save to library: Rust `save_trace` writes the file + re-extracts metadata; DB row insert on first save, overwrite + metadata/name re-sync on re-save
-- [x] Save a copy…: native save dialog + Rust `write_trace_to_path` (no library/DB involvement)
+- [x] Save a copy…: stores a duplicate trace as a new library file (same managed location as imported files) — no OS location prompt
 
 - [x] Live elevation profile while drawing: elevations auto-fetched (opentopodata SRTM, cached, offline-safe) and re-computed on every change
 - [x] Per-waypoint kilometer markers: distance along the trace shown on the profile, the waypoint list, and as labels on the map markers

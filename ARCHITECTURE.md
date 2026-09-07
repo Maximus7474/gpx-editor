@@ -151,8 +151,10 @@ editor state (or any `GpxDocument`) back into GPX 1.1 XML, symmetric with
 `parseGpx`. Saving to the library goes through Rust (`save_trace` writes the
 file and re-runs `gpxmeta::extract_metadata` so the index stays in sync; the
 TS repository inserts the row on first save and updates metadata/name on
-re-save). "Save a copy…" writes the XML straight to a user-chosen path
-(`write_trace_to_path`) without touching the library.
+re-save). "Save a copy…" also saves in-app: it writes a duplicate as a new
+library file (new row each time) instead of prompting for a disk location —
+the `write_trace_to_path` command still exists for writing to an arbitrary
+user-chosen path, but the editor no longer uses it.
 
 Elevation: drawn positions carry no elevation, so the editor enriches them in
 `src/lib/elevation.ts` via the free opentopodata SRTM API. The fetch runs in a
