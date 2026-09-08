@@ -9,7 +9,7 @@ import {
   Tag,
   Text,
 } from "@chakra-ui/react";
-import { ArrowLeftIcon } from "@phosphor-icons/react";
+import { ArrowLeftIcon, PencilLineIcon } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getGpxFile } from "../../lib/db/repository";
@@ -148,17 +148,23 @@ export function GpxViewerPage() {
               {file.originalName} · imported {formatDate(file.importedAt)}
             </Text>
           </Box>
-          <HStack gap="2" display={{ base: "none", md: "flex" }} flexShrink="0">
-            {stats && (
-              <Tag.Root size="sm">
-                <Tag.Label>{stats}</Tag.Label>
-              </Tag.Root>
-            )}
-            {file.distanceM > 0 && (
-              <Tag.Root size="sm" colorPalette="green">
-                <Tag.Label>{formatDistance(file.distanceM)}</Tag.Label>
-              </Tag.Root>
-            )}
+          <HStack gap="2" flexShrink="0">
+            <Button size="sm" variant="subtle" onClick={() => navigate(`/trace-editor/${file.id}`)}>
+              <PencilLineIcon aria-hidden />
+              Edit
+            </Button>
+            <HStack gap="2" display={{ base: "none", md: "flex" }} flexShrink="0">
+              {stats && (
+                <Tag.Root size="sm">
+                  <Tag.Label>{stats}</Tag.Label>
+                </Tag.Root>
+              )}
+              {file.distanceM > 0 && (
+                <Tag.Root size="sm" colorPalette="green">
+                  <Tag.Label>{formatDistance(file.distanceM)}</Tag.Label>
+                </Tag.Root>
+              )}
+            </HStack>
           </HStack>
         </HStack>
       </Box>

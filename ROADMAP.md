@@ -31,10 +31,9 @@
 - [x] Live elevation profile while drawing: elevations auto-fetched (opentopodata SRTM, cached, offline-safe) and re-computed on every change
 - [x] Per-waypoint kilometer markers: distance along the trace shown on the profile, the waypoint list, and as labels on the map markers
 
-### Remaining
-
-- [ ] Unsaved-changes guard on navigation
-- [ ] Editing existing library tracks/waypoints: load a library file into the editor, drag/add/remove points and waypoints, save back to the same file
+- [x] Editing existing library tracks/waypoints: load a library file into the editor (`/trace-editor/:fileId`, Edit button in the Library rows and the viewer header), drag/add/remove points and waypoints, save back to the same file (re-save overwrites the managed file + re-syncs index metadata); a warning banner flags files with multiple tracks/routes that get consolidated on save
+- [x] Unsaved-changes guard on navigation: leaving the workspace (sidebar, back button, direct nav, window close) with unsaved edits opens a confirm dialog (Keep editing / Discard & leave); Clear keeps its own confirm
+- [x] Leaving the workspace discards the in-memory session (loaded trace, drawn points, history), so the trace editor always re-opens as a blank project
 
 ## Phase 3 — Smarter creation tools
 

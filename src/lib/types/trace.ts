@@ -42,6 +42,22 @@ export function waypointCategory(id: WaypointCategoryId): WaypointCategory {
   return WAYPOINT_CATEGORIES.find((category) => category.id === id) ?? WAYPOINT_CATEGORIES[0];
 }
 
+/**
+ * Reverse-map a GPX `<type>` value back to a category id (symmetric with the
+ * serializer, which writes `waypointCategory(id).label`). Unknown or absent
+ * types fall back to the default category.
+ */
+export function waypointCategoryFromType(type: string | undefined): WaypointCategoryId {
+  if (!type) return DEFAULT_WAYPOINT_CATEGORY;
+  const normalized = type.trim().toLowerCase();
+  for (const category of WAYPOINT_CATEGORIES) {
+    if (category.label.toLowerCase() === normalized || category.id === normalized) {
+      return category.id;
+    }
+  }
+  return DEFAULT_WAYPOINT_CATEGORY;
+}
+
 /** A free-standing marker placed on the map (checkpoint, hydration, …). */
 export interface EditorWaypoint {
   id: string;

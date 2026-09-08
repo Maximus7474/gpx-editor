@@ -1,19 +1,26 @@
 import { create } from "zustand";
+import { getGpxFile } from "../db/repository";
 import { elevationKey, fetchElevations } from "../elevation";
 import { haversineDistanceMeters } from "../gpx/geometry";
-import type {
-  EditorPoint,
-  EditorSelection,
-  EditorTool,
-  EditorWaypoint,
-  WaypointCategoryId,
+import { parseGpx } from "../gpx/parseGpx";
+import { readGpxFile } from "../ipc";
+import type { GpxDocument } from "../types/gpx";
+import { fileDisplayName } from "../types/models";
+import {
+  type EditorPoint,
+  type EditorSelection,
+  type EditorTool,
+  type EditorWaypoint,
+  type WaypointCategoryId,
+  waypointCategoryFromType,
 } from "../types/trace";
 
 /**
- * In-memory session state for the trace editor. Nothing here is persisted —
- * GPX serialization + library save are a later milestone. The store is not
- * part of the app shell, so it survives navigating away and back (the page
- * shows an "Unsaved" indicator); `discard` resets it explicitly.
+ * In-memory session state for the trace editor (create + edit). `loadTrace`
+ * hydrates a library GPX for in-place editing; saving serializes back through
+ * Rust. The page calls `discard` whenever the workspace is left, so the next
+ * visit always starts from a blank project; `discard` also backs the Clear
+ * action.
  */
 
 /** Deep-ish snapshot of the editable geometry, stored for undo/redo. */
@@ -58,6 +65,10 @@ interface TraceEditorState {
   fitSignal: number;
   /** The library file this trace was last saved to, once it has been saved. */
   savedFile: SavedTraceFile | null;
+  /** Library file id currently loaded in the workspace (guards re-loading). */
+  loadedFileId: number | null;
+  /** Parsed document of the loaded file, kept for re-entry + the page's consolidation note. */
+  loadedDoc: GpxDocument | null;
   /** False as soon as the geometry diverges from the last save. */
   saved: boolean;
   /** True while missing elevations are being fetched for the drawn points. */
@@ -70,6 +81,14 @@ interface TraceEditorState {
   requestFit: () => void;
   /** Record a successful save (sets the workspace to "clean"). */
   markSaved: (file: SavedTraceFile) => void;
+  /**
+   * Load a library GPX file into the workspace for in-place editing: hydrates
+   * points/waypoints (carrying parsed elevations), marks the session saved
+   * against that file, resets history, and fits the map. Returns the parsed
+   * document so the page can warn about content the editor cannot round-trip
+   * (or null when the file was already loaded — the session is kept).
+   */
+  loadTrace: (fileId: number) => Promise<GpxDocument | null>;
 
   // Mutations — each pushes the pre-mutation state onto the undo stack.
   /** Enrich positions that still lack an elevation (background, not undoable). */
@@ -139,6 +158,8 @@ export const useTraceEditorStore = create<TraceEditorState>((set, get) => {
     future: [],
     fitSignal: 0,
     savedFile: null,
+    loadedFileId: null,
+    loadedDoc: null,
     saved: false,
     elevationLoading: false,
 
@@ -147,6 +168,80 @@ export const useTraceEditorStore = create<TraceEditorState>((set, get) => {
     setHover: (hover) => set({ hover }),
     requestFit: () => set({ fitSignal: get().fitSignal + 1 }),
     markSaved: (file) => set({ savedFile: file, saved: true }),
+
+    loadTrace: async (fileId) => {
+      // Same file already in the workspace — keep the (possibly unsaved) session
+      // and hand back the cached document so the page can still show its note.
+      if (get().loadedFileId === fileId) return get().loadedDoc;
+
+      const file = await getGpxFile(fileId);
+      if (!file) throw new Error("This file is no longer in the library.");
+      const xml = await readGpxFile(file.filePath);
+      const doc = parseGpx(xml);
+
+      // One ordered list of route positions: every track segment in file order
+      // (same flattening the viewer uses), falling back to the first route when
+      // the file has no tracks. Parsed elevations carry over, so loaded files
+      // render a profile immediately instead of re-fetching.
+      positionCounter = 0;
+      waypointCounter = 0;
+      const points: EditorPoint[] = [];
+      for (const track of doc.tracks) {
+        for (const segment of track.segments) {
+          for (const point of segment.points) {
+            points.push({
+              id: `position-${++positionCounter}`,
+              lat: point.lat,
+              lon: point.lon,
+              ...(point.ele === undefined ? {} : { ele: point.ele }),
+            });
+          }
+        }
+      }
+      if (points.length === 0 && doc.routes.length > 0) {
+        for (const point of doc.routes[0].points) {
+          points.push({
+            id: `position-${++positionCounter}`,
+            lat: point.lat,
+            lon: point.lon,
+            ...(point.ele === undefined ? {} : { ele: point.ele }),
+          });
+        }
+      }
+      const waypoints: EditorWaypoint[] = doc.waypoints.map((waypoint) => ({
+        id: `waypoint-${++waypointCounter}`,
+        lat: waypoint.lat,
+        lon: waypoint.lon,
+        category: waypointCategoryFromType(waypoint.type),
+        ...(waypoint.name ? { name: waypoint.name } : {}),
+      }));
+
+      set({
+        points,
+        waypoints,
+        selected: null,
+        hover: null,
+        past: [],
+        future: [],
+        savedFile: {
+          id: file.id,
+          filePath: file.filePath,
+          originalName: file.originalName,
+          name: fileDisplayName(file),
+        },
+        loadedFileId: fileId,
+        loadedDoc: doc,
+        saved: true,
+        fitSignal: get().fitSignal + 1,
+      });
+      // Points without `<ele>` in the file get enriched in the background (the
+      // saved flag is untouched — elevation is derived metadata, not an edit).
+      if (elevationTimer) clearTimeout(elevationTimer);
+      elevationTimer = setTimeout(() => {
+        void get().refreshElevations();
+      }, 600);
+      return doc;
+    },
 
     refreshElevations: async () => {
       const { points } = get();
@@ -281,6 +376,8 @@ export const useTraceEditorStore = create<TraceEditorState>((set, get) => {
         past: [],
         future: [],
         savedFile: null,
+        loadedFileId: null,
+        loadedDoc: null,
         saved: false,
         elevationLoading: false,
       });
