@@ -79,5 +79,5 @@ jobs:
         run: |
           VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
           gh release edit "v${VERSION}" --draft=false
-          gh release view "v${VERSION}" --json tagName,name,draft \
+          gh release view "v${VERSION}" --json tagName,name,isDraft \
             --jq '{tagName, name, draft}'
