@@ -15,9 +15,7 @@
 - [x] Settings page (sidebar behavior, storage location, etc.)
 - [x] Version info + update checks: build version from Rust, GitHub latest-release comparison
 
-## Phase 2 — Create & Edit (current)
-
-### Trace editor workspace (in progress)
+## Phase 2 — Create & Edit (done)
 
 - [x] Trace editor workspace: map + collapsible right-hand details panel, tools in the top right (`/trace-editor`)
 - [x] In-app trace creation: click the map to lay route positions (session-only, in-memory)
