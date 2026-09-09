@@ -1,5 +1,5 @@
 /**
- * Bump the app version across the files that carry it.
+ * Bump the app version across the files that carry it and release via Git.
  *
  * Usage:
  *   bun run bump-version <version>            # e.g. "0.2.0" (a leading "v" is tolerated)
@@ -17,9 +17,10 @@
  * pushing a release tag (see README.md → Releasing).
  *
  * Dependency-free on purpose: it runs under Bun (TS without a build step) and
- * uses only node:fs / node:path.
+ * uses only node:child_process, node:fs, and node:path.
  */
 
+import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,6 +42,15 @@ const PKG_NAME = "gpx-editor";
 function fail(message: string): never {
   console.error(`bump-version: ${message}`);
   process.exit(1);
+}
+
+function runGit(command: string): void {
+  console.log(`> ${command}`);
+  try {
+    execSync(command, { stdio: "inherit", cwd: ROOT });
+  } catch {
+    fail(`git command failed: "${command}"`);
+  }
 }
 
 function readText(path: string): string {
@@ -137,7 +147,7 @@ function main(): void {
   if (!arg) {
     console.error(
       "Usage: bun run bump-version <version | patch | minor | major>\n" +
-        "  e.g. bun run bump-version 0.2.0   or   bun run bump-version minor",
+        "   e.g. bun run bump-version 0.2.0   or   bun run bump-version minor",
     );
     process.exit(1);
   }
@@ -157,6 +167,8 @@ function main(): void {
     fail(`version is already ${current} — nothing to do`);
   }
 
+  // Update file contents
+  conf.version = next;
   writeJson(TAURI_CONF, conf);
   replacePackageVersion(CARGO_TOML, "Cargo.toml", next);
   replacePackageVersion(CARGO_LOCK, "Cargo.lock", next, PKG_NAME);
@@ -166,7 +178,15 @@ function main(): void {
   writeJson(PACKAGE_JSON, pkg);
 
   console.log(`bump-version: ${current} -> ${next}`);
-  console.log(`Next: git tag v${next} && git push origin v${next}`);
+
+  // Git operations
+  runGit("git add src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock package.json");
+  runGit(`git commit -m "v${next}"`);
+  runGit(`git tag v${next}`);
+  runGit("git push origin HEAD");
+  runGit(`git push origin v${next}`);
+
+  console.log(`\nSuccessfully bumped to v${next}`);
 }
 
 main();
