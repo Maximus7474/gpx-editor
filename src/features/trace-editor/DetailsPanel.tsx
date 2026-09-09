@@ -131,7 +131,7 @@ export function DetailsPanel({ open, onToggle, onEditWaypoint }: DetailsPanelPro
             <CollapsibleSection label="Waypoints" count={waypoints.length}>
               {waypoints.length === 0 ? (
                 <EmptyHint
-                  text="Drop checkpoints, hydration stations, start/finish…"
+                  text="Drop checkpoints, hydration stations…"
                   actionLabel="Add waypoint"
                   onAction={() => setTool("add-waypoint")}
                 />
