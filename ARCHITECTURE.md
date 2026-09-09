@@ -165,10 +165,29 @@ and render as a flat distance-only profile). Waypoints get km markers everywhere
 (profile, list, map labels) via `distanceAlongTraceM` in
 `src/lib/gpx/geometry.ts`.
 
-Still to come (Phase 2 remainder):
+Library files load into the same workspace for in-place editing: routes use
+`/trace-editor/:fileId` (Edit buttons in the Library rows and the viewer
+header), `loadTrace` on the store hydrates points/waypoints from the parsed
+GPX (carrying `<ele>` so no re-fetch), marks the session saved against that
+file, and resets history; Save then overwrites the same managed file via the
+existing `save_trace` + metadata re-sync path. The editor models a single
+track, so multi-track files flatten into one polyline and routes are dropped
+on save — a dismissible banner warns the user when a loaded file would
+consolidate.
 
-- Unsaved-changes warning on navigation.
-- Loading existing library files into the editor (drag/edit points).
+Unsaved changes are guarded: the editor uses React Router's `useBlocker`
+(which requires the data router — `App.tsx` was migrated from declarative
+`<HashRouter>` to `createHashRouter` + `RouterProvider`) to intercept any
+navigation away from the workspace while the session is dirty, showing a
+Keep-editing / Discard-and-leave dialog; a `beforeunload` listener covers
+window close. Clear keeps its own confirm dialog.
+
+Leaving the editor always discards the session: the page's blocker callback
+marks a real navigation away (it runs on every attempt, even unblocked ones),
+and the unmount cleanup calls the store's `discard`; the blank `/trace-editor`
+route also discards on entry (it re-renders in place when the `:fileId` param
+drops, so no unmount happens there). Re-entering the editor therefore always
+starts from a blank project — loaded files are re-read from the library.
 
 ## Resolved Decisions (recorded 2026-09)
 

@@ -1,7 +1,18 @@
-import { Box, Button, Center, Dialog, Flex, HStack, IconButton, Tag, Text } from "@chakra-ui/react";
-import { ArrowLeftIcon } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import {
+  Box,
+  Button,
+  Center,
+  Dialog,
+  Flex,
+  HStack,
+  IconButton,
+  Spinner,
+  Tag,
+  Text,
+} from "@chakra-ui/react";
+import { ArrowLeftIcon, WarningCircleIcon, XIcon } from "@phosphor-icons/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useBlocker, useNavigate, useParams } from "react-router-dom";
 import { toaster } from "../../components/ui/toaster";
 import { insertGpxFileRow, updateGpxFileMetadata } from "../../lib/db/repository";
 import { formatDistance } from "../../lib/format";
@@ -14,6 +25,7 @@ import {
   traceLengthM,
   useTraceEditorStore,
 } from "../../lib/stores/traceEditorStore";
+import type { GpxDocument } from "../../lib/types/gpx";
 import type { ImportedGpx } from "../../lib/types/models";
 import type { EditorTool } from "../../lib/types/trace";
 import { DetailsPanel } from "./DetailsPanel";
@@ -24,17 +36,33 @@ import { TraceElevationPanel } from "./TraceElevationPanel";
 import { WaypointDialog } from "./WaypointDialog";
 
 /**
- * Trace creator/editor workspace (Phase 2, milestone 1). The session is
- * in-memory: positions are laid by clicking the map, waypoints (checkpoints,
- * hydration stations…) can be dropped, dragged, renamed and recategorized,
- * and every change is undoable. Nothing is persisted yet — serialization and
- * saving to the library come in the next milestone.
+ * Trace creator/editor workspace. The session is in-memory:
+ * positions are laid by clicking the map and can then be dragged, deleted or
+ * inserted between (click the trace or use the row menu); waypoints
+ * (checkpoints, hydration stations…) can be dropped, dragged, renamed and
+ * recategorized, and every change is undoable. `/trace-editor/:fileId` loads
+ * a library GPX for in-place editing; saving serializes the session back to
+ * GPX in the managed library. Leaving the workspace discards the session, so
+ * the editor always re-opens as a blank project.
  */
 export function TraceEditorPage() {
   const navigate = useNavigate();
+  const { fileId } = useParams();
+  // No param → a fresh workspace; a numeric param → edit that library file.
+  const fileIdNum = fileId === undefined ? null : Number(fileId);
+  const loadTrace = useTraceEditorStore((s) => s.loadTrace);
+  const [loadState, setLoadState] = useState<"idle" | "loading" | "error">("idle");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Shown when the loaded file has structure the editor cannot round-trip
+  // (multiple tracks merged, routes dropped) so the user isn't surprised on save.
+  const [consolidationWarning, setConsolidationWarning] = useState<string | null>(null);
+  const [warningDismissed, setWarningDismissed] = useState(false);
   const points = useTraceEditorStore((s) => s.points);
   const waypoints = useTraceEditorStore((s) => s.waypoints);
   const tool = useTraceEditorStore((s) => s.tool);
+  const selected = useTraceEditorStore((s) => s.selected);
+  const deletePoint = useTraceEditorStore((s) => s.deletePoint);
+  const deleteWaypoint = useTraceEditorStore((s) => s.deleteWaypoint);
   const discard = useTraceEditorStore((s) => s.discard);
   const savedFile = useTraceEditorStore((s) => s.savedFile);
   const saved = useTraceEditorStore((s) => s.saved);
@@ -53,6 +81,125 @@ export function TraceEditorPage() {
     return window.matchMedia("(min-width: 1100px)").matches;
   });
   const [editingWaypointId, setEditingWaypointId] = useState<string | null>(null);
+
+  // ---- Unsaved-changes guard -------------------------------------------------
+  // Block leaving the workspace (sidebar, back button, direct nav) while there
+  // are unsaved edits; a confirm dialog lets the user stay or discard. Window
+  // close is covered separately via `beforeunload`.
+  // Set when a real navigation away from the workspace starts (the blocker
+  // callback runs on every attempt, even ones it lets through). The unmount
+  // cleanup below then discards the session, so re-entering the trace editor
+  // always offers a blank project. StrictMode's dev-only remount never sets it.
+  const leavingRef = useRef(false);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+    if (currentLocation.pathname !== nextLocation.pathname) {
+      leavingRef.current = true;
+    }
+    return unsaved && currentLocation.pathname !== nextLocation.pathname;
+  });
+  const [leaveOpen, setLeaveOpen] = useState(false);
+
+  useEffect(() => {
+    if (blocker.state === "blocked") setLeaveOpen(true);
+  }, [blocker.state]);
+
+  // Leaving the editor clears the in-memory session (loaded trace, drawn
+  // points, history) so the next visit starts from a blank workspace.
+  useEffect(() => {
+    return () => {
+      if (leavingRef.current) discard();
+    };
+  }, [discard]);
+
+  useEffect(() => {
+    if (!unsaved) return;
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [unsaved]);
+
+  // Delete/Backspace removes the selected point or waypoint. Ignored while
+  // typing in a field or when a dialog is open, so it never fights the user.
+  useEffect(() => {
+    if (!selected) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Delete" && event.key !== "Backspace") return;
+      if (!selected) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (leaveOpen || saveOpen || copyOpen || clearOpen || editingWaypointId !== null) return;
+      event.preventDefault();
+      if (selected.kind === "point") {
+        deletePoint(selected.index);
+        toaster.create({ title: "Position deleted", type: "info" });
+      } else {
+        deleteWaypoint(selected.id);
+        toaster.create({ title: "Waypoint deleted", type: "info" });
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    selected,
+    deletePoint,
+    deleteWaypoint,
+    leaveOpen,
+    saveOpen,
+    copyOpen,
+    clearOpen,
+    editingWaypointId,
+  ]);
+
+  function handleStay() {
+    setLeaveOpen(false);
+    if (blocker.state === "blocked") blocker.reset();
+  }
+
+  function handleLeave() {
+    setLeaveOpen(false);
+    if (blocker.state === "blocked") blocker.proceed();
+  }
+
+  useEffect(() => {
+    if (fileIdNum === null) {
+      // The blank editor route always starts from a blank project — clear any
+      // loaded/unsaved session. This also covers the sidebar "Trace editor"
+      // click while editing a file, which changes the param without unmounting.
+      discard();
+      setLoadState("idle");
+      setConsolidationWarning(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadState("loading");
+    setLoadError(null);
+    loadTrace(fileIdNum)
+      .then((doc) => {
+        if (cancelled) return;
+        setConsolidationWarning(doc ? consolidationNote(doc) : null);
+        setWarningDismissed(false);
+        setLoadState("idle");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setLoadError(error instanceof Error ? error.message : String(error));
+        setLoadState("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fileIdNum, loadTrace, discard]);
 
   const editingWaypoint = useTraceEditorStore((s) =>
     editingWaypointId === null
@@ -143,6 +290,30 @@ export function TraceEditorPage() {
     }
   }
 
+  if (loadState === "loading") {
+    return (
+      <Center h="100vh">
+        <Spinner />
+      </Center>
+    );
+  }
+
+  if (loadState === "error") {
+    return (
+      <Center h="100vh">
+        <Box textAlign="center" maxW="md">
+          <Text fontWeight="semibold">Could not open this file for editing</Text>
+          <Text color="fg.muted" textStyle="sm" mt="1">
+            {loadError}
+          </Text>
+          <Button mt="3" onClick={() => navigate("/")}>
+            Back to library
+          </Button>
+        </Box>
+      </Center>
+    );
+  }
+
   return (
     <Flex direction="column" h="100vh" bg="bg.muted">
       {/* Header: back nav + title on the left, tools on the right. */}
@@ -190,6 +361,32 @@ export function TraceEditorPage() {
           />
         </HStack>
       </Box>
+
+      {/* Data-integrity note for loaded files the editor cannot round-trip. */}
+      {consolidationWarning && !warningDismissed && (
+        <HStack
+          gap="2"
+          px={{ base: 3, md: 5 }}
+          py="1.5"
+          bg="bg.panel"
+          borderBottomWidth="1px"
+          borderColor="border.subtle"
+          flexShrink="0"
+        >
+          <WarningCircleIcon color="#d97706" />
+          <Text color="fg.muted" textStyle="xs" flex="1">
+            {consolidationWarning}
+          </Text>
+          <IconButton
+            aria-label="Dismiss warning"
+            variant="ghost"
+            size="xs"
+            onClick={() => setWarningDismissed(true)}
+          >
+            <XIcon />
+          </IconButton>
+        </HStack>
+      )}
 
       {/* Workspace: map + collapsible right-hand details panel. */}
       <Flex flex="1" minH="0">
@@ -282,6 +479,37 @@ export function TraceEditorPage() {
       />
 
       {/* Clear-confirmation dialog */}
+      {/* Unsaved-changes dialog (navigation was blocked). */}
+      <Dialog.Root
+        open={leaveOpen}
+        onOpenChange={(details) => {
+          // Closing via ESC/backdrop means "stay" — cancel the blocked navigation.
+          if (!details.open) handleStay();
+        }}
+      >
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content>
+            <Dialog.Header>
+              <Dialog.Title>Unsaved changes</Dialog.Title>
+            </Dialog.Header>
+            <Dialog.Body>
+              <Text textStyle="sm">
+                This trace has unsaved changes. If you leave the editor now, they will be lost.
+              </Text>
+            </Dialog.Body>
+            <Dialog.Footer>
+              <Button variant="ghost" onClick={handleStay}>
+                Keep editing
+              </Button>
+              <Button colorPalette="red" onClick={handleLeave}>
+                Discard &amp; leave
+              </Button>
+            </Dialog.Footer>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Dialog.Root>
+
       <Dialog.Root
         open={clearOpen}
         onOpenChange={(details) => {
@@ -319,10 +547,31 @@ export function TraceEditorPage() {
 function toolHint(tool: EditorTool): string {
   switch (tool) {
     case "add-point":
-      return "Click to add a position · drag the map to move around";
+      return "Click to add a position · drag any point to move it · click the trace to insert between";
     case "add-waypoint":
       return "Click to drop a waypoint — drag or double-click it afterwards";
     case "select":
-      return "Click a point or waypoint to select it; double-click a waypoint to edit";
+      return "Click a point or waypoint to select it · drag points to move them · Delete removes the selection";
   }
+}
+
+/**
+ * Explain what saving will do to a loaded file's structure when the editor
+ * cannot faithfully round-trip it: multiple tracks merge into one, and routes
+ * are dropped (or only the first is used when there are no tracks). Null when
+ * the file edits cleanly.
+ */
+function consolidationNote(doc: GpxDocument): string | null {
+  const notes: string[] = [];
+  if (doc.tracks.length > 1) {
+    notes.push(`${doc.tracks.length} tracks will be merged into one`);
+  }
+  if (doc.tracks.length > 0 && doc.routes.length > 0) {
+    notes.push(`${doc.routes.length} route${doc.routes.length === 1 ? "" : "s"} won't be saved`);
+  }
+  if (doc.tracks.length === 0 && doc.routes.length > 1) {
+    notes.push(`only the first of ${doc.routes.length} routes is edited`);
+  }
+  if (notes.length === 0) return null;
+  return `Editing this file: ${notes.join("; ")}.`;
 }

@@ -3,31 +3,36 @@ import { XIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { fileDisplayName, type GpxFile } from "../../lib/types/models";
 
-interface RenameFileDialogProps {
+interface EditFileDialogProps {
   open: boolean;
   /** When set, the dialog edits this file's display name. */
   file: GpxFile | null;
   onClose: () => void;
-  onSubmit: (name: string) => Promise<void>;
+  /** Rename only; resolves when done, throws to keep the dialog open on failure. */
+  onRename: (name: string) => Promise<void>;
+  /** Rename (if changed) then open the trace editor. */
+  onEdit: (name: string) => Promise<void>;
 }
 
-export function RenameFileDialog({ open, file, onClose, onSubmit }: RenameFileDialogProps) {
+/** Combined rename + edit entry point opened from the library's Edit action. */
+export function EditFileDialog({ open, file, onClose, onRename, onEdit }: EditFileDialogProps) {
   const [name, setName] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState<"rename" | "edit" | null>(null);
 
   useEffect(() => {
     if (open && file) setName(fileDisplayName(file));
   }, [open, file]);
 
-  async function handleSubmit() {
+  async function run(action: "rename" | "edit") {
     const trimmed = name.trim();
     if (!trimmed) return;
-    setSaving(true);
+    setBusy(action);
     try {
-      await onSubmit(trimmed);
+      if (action === "rename") await onRename(trimmed);
+      else await onEdit(trimmed);
       onClose();
     } finally {
-      setSaving(false);
+      setBusy(null);
     }
   }
 
@@ -42,7 +47,7 @@ export function RenameFileDialog({ open, file, onClose, onSubmit }: RenameFileDi
       <Dialog.Positioner>
         <Dialog.Content>
           <Dialog.Header>
-            <Dialog.Title>Rename file</Dialog.Title>
+            <Dialog.Title>Edit file</Dialog.Title>
             <Dialog.CloseTrigger asChild>
               <IconButton aria-label="Close" variant="ghost" size="sm">
                 <XIcon />
@@ -65,14 +70,29 @@ export function RenameFileDialog({ open, file, onClose, onSubmit }: RenameFileDi
                   autoFocus
                 />
               </Field.Root>
+              <Text color="fg.muted" textStyle="xs">
+                Rename the file in the library, or rename and open it in the trace editor.
+              </Text>
             </Stack>
           </Dialog.Body>
           <Dialog.Footer>
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={() => void handleSubmit()} loading={saving} disabled={!name.trim()}>
+            <Button
+              variant="outline"
+              onClick={() => void run("rename")}
+              loading={busy === "rename"}
+              disabled={!name.trim() || busy !== null}
+            >
               Rename
+            </Button>
+            <Button
+              onClick={() => void run("edit")}
+              loading={busy === "edit"}
+              disabled={!name.trim() || busy !== null}
+            >
+              Edit trace
             </Button>
           </Dialog.Footer>
         </Dialog.Content>

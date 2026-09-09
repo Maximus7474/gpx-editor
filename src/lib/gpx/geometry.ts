@@ -16,6 +16,43 @@ export function haversineDistanceMeters(
 }
 
 /**
+ * Midpoint of two lat/lon points (trace-scale approximation). Longitudes
+ * average the short way around the antimeridian.
+ */
+export function midpointBetween(
+  a: Pick<TrackPoint, "lat" | "lon">,
+  b: Pick<TrackPoint, "lat" | "lon">,
+): { lat: number; lon: number } {
+  const dLon = ((b.lon - a.lon + 540) % 360) - 180;
+  return { lat: (a.lat + b.lat) / 2, lon: a.lon + dLon / 2 };
+}
+
+/**
+ * Closest point on the segment [a, b] to `target`, as lat/lon. Uses the same
+ * local planar approximation as `distanceAlongTraceM` (fine at segment scale).
+ * Used to insert a vertex where the user clicks on the trace.
+ */
+export function projectPointOnSegment(
+  a: Pick<TrackPoint, "lat" | "lon">,
+  b: Pick<TrackPoint, "lat" | "lon">,
+  target: Pick<TrackPoint, "lat" | "lon">,
+): { lat: number; lon: number } {
+  const METERS_PER_DEGREE_LAT = 110_540;
+  const cosLat = Math.cos((a.lat * Math.PI) / 180);
+  const px = (target.lon - a.lon) * METERS_PER_DEGREE_LAT * cosLat;
+  const py = (target.lat - a.lat) * METERS_PER_DEGREE_LAT;
+  const sx = (b.lon - a.lon) * METERS_PER_DEGREE_LAT * cosLat;
+  const sy = (b.lat - a.lat) * METERS_PER_DEGREE_LAT;
+  const length2 = sx * sx + sy * sy;
+  let t = 0;
+  if (length2 > 0) {
+    t = (px * sx + py * sy) / length2;
+    t = Math.max(0, Math.min(1, t));
+  }
+  return { lat: a.lat + t * (b.lat - a.lat), lon: a.lon + t * (b.lon - a.lon) };
+}
+
+/**
  * Project a target point onto a polyline: the distance along it (meters) of
  * the closest point, plus how far off the line the target sits. Null when the
  * polyline has fewer than two points. Used to express where waypoints sit on
