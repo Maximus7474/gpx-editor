@@ -9,9 +9,13 @@ import {
   useMap,
   useMapEvents,
 } from "react-leaflet";
-import { distanceAlongTraceM } from "../../lib/gpx/geometry";
+import {
+  distanceAlongTraceM,
+  haversineDistanceMeters,
+  projectPointOnSegment,
+} from "../../lib/gpx/geometry";
 import { useTraceEditorStore } from "../../lib/stores/traceEditorStore";
-import { type EditorWaypoint, waypointCategory } from "../../lib/types/trace";
+import { type EditorPoint, type EditorWaypoint, waypointCategory } from "../../lib/types/trace";
 
 import "leaflet/dist/leaflet.css";
 
@@ -32,6 +36,7 @@ const VERTEX_RADIUS = 5;
 export function EditorMap({ onEditWaypoint }: { onEditWaypoint: (id: string) => void }) {
   const points = useTraceEditorStore((s) => s.points);
   const waypoints = useTraceEditorStore((s) => s.waypoints);
+  const hover = useTraceEditorStore((s) => s.hover);
   // Each waypoint's distance along the drawn trace, for the km label.
   const waypointKm = useMemo(() => {
     const map = new Map<string, number>();
@@ -41,6 +46,8 @@ export function EditorMap({ onEditWaypoint }: { onEditWaypoint: (id: string) => 
     }
     return map;
   }, [points, waypoints]);
+  const hoverSegmentIndex =
+    hover?.kind === "segment" && hover.index < points.length - 1 ? hover.index : null;
 
   return (
     <MapContainer
@@ -56,10 +63,32 @@ export function EditorMap({ onEditWaypoint }: { onEditWaypoint: (id: string) => 
       <MapClickLayer />
       <TraceCamera />
       {points.length > 1 && (
-        <Polyline
-          positions={points.map(toLatLng)}
-          pathOptions={{ color: TRACE_COLOR, weight: 4, opacity: 0.9 }}
-        />
+        <>
+          <Polyline
+            positions={points.map(toLatLng)}
+            pathOptions={{ color: TRACE_COLOR, weight: 4, opacity: 0.9 }}
+          />
+          {/* The hovered stretch of the trace (list/elevation-chart cross-highlight). */}
+          {hoverSegmentIndex !== null && (
+            <Polyline
+              positions={[
+                toLatLng(points[hoverSegmentIndex]),
+                toLatLng(points[hoverSegmentIndex + 1]),
+              ]}
+              pathOptions={{ color: SELECT_COLOR, weight: 6, opacity: 0.85, interactive: false }}
+            />
+          )}
+          {/* Invisible hit areas: hovering a section lights it up (map + elevation
+              chart), clicking it inserts a point at the projected spot, between
+              the two vertices. */}
+          {points.slice(0, -1).map((point, index) => (
+            <SegmentHitLayer
+              key={`${point.id}-${points[index + 1].id}`}
+              a={point}
+              b={points[index + 1]}
+            />
+          ))}
+        </>
       )}
       {points.map((point, index) => (
         <VertexMarker key={point.id} index={index} lat={point.lat} lon={point.lon} />
@@ -150,7 +179,7 @@ function TraceCamera() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Vertices                                                            */
+/* Vertices (draggable so they can be moved by hand)                   */
 /* ------------------------------------------------------------------ */
 
 function VertexMarker({ index, lat, lon }: { index: number; lat: number; lon: number }) {
@@ -158,6 +187,8 @@ function VertexMarker({ index, lat, lon }: { index: number; lat: number; lon: nu
     (s) => s.selected?.kind === "point" && s.selected.index === index,
   );
   const select = useTraceEditorStore((s) => s.select);
+  const setHover = useTraceEditorStore((s) => s.setHover);
+  const movePoint = useTraceEditorStore((s) => s.movePoint);
 
   function handleClick(event: LeafletMouseEvent) {
     L.DomEvent.stopPropagation(event.originalEvent);
@@ -165,17 +196,114 @@ function VertexMarker({ index, lat, lon }: { index: number; lat: number; lon: nu
   }
 
   return (
-    <CircleMarker
-      center={[lat, lon]}
-      radius={selected ? VERTEX_RADIUS + 2 : VERTEX_RADIUS}
-      pathOptions={
-        selected
-          ? { color: SELECT_COLOR, weight: 2.5, fillColor: TRACE_COLOR, fillOpacity: 1 }
-          : { color: "#ffffff", weight: 1.5, fillColor: TRACE_COLOR, fillOpacity: 1 }
-      }
-      eventHandlers={{ click: handleClick }}
+    <Marker
+      position={[lat, lon]}
+      icon={vertexDivIcon(selected)}
+      draggable
+      zIndexOffset={selected ? 1000 : 0}
+      eventHandlers={{
+        click: handleClick,
+        mouseover: () => setHover({ kind: "point", index }),
+        mouseout: () => setHover(null),
+        dragend: (event) => {
+          const position = (event.target as L.Marker).getLatLng();
+          movePoint(index, position.lat, position.lng);
+        },
+      }}
     />
   );
+}
+
+const VERTEX_ICON_SIZE = 10;
+const VERTEX_SELECTED_SIZE = 14;
+const VERTEX_ICONS = new Map<string, L.DivIcon>();
+
+/** Small circle for a route vertex — a divIcon so the marker can be dragged. */
+function vertexDivIcon(selected: boolean): L.DivIcon {
+  const key = selected ? "selected" : "plain";
+  const cached = VERTEX_ICONS.get(key);
+  if (cached) return cached;
+  const size = selected ? VERTEX_SELECTED_SIZE : VERTEX_ICON_SIZE;
+  const icon = L.divIcon({
+    className: "",
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#2563eb;border:${selected ? "2.5px solid #f59e0b" : "1.5px solid #ffffff"};box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>`,
+    iconAnchor: [size / 2, size / 2],
+  });
+  VERTEX_ICONS.set(key, icon);
+  return icon;
+}
+
+/* ------------------------------------------------------------------ */
+/* Trace sections (between two vertices)                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Invisible hit area along one stretch of the trace (points `a` and `b`).
+ * Which stretch was actually hit is resolved globally — near a shared vertex
+ * the ±5 px band of two adjacent segments overlaps, and Leaflet's renderer
+ * would otherwise report the topmost one instead of the nearest.
+ */
+function SegmentHitLayer({ a, b }: { a: EditorPoint; b: EditorPoint }) {
+  const setHover = useTraceEditorStore((s) => s.setHover);
+  const insertPosition = useTraceEditorStore((s) => s.insertPosition);
+  const points = useTraceEditorStore((s) => s.points);
+
+  function handleClick(event: LeafletMouseEvent) {
+    // Stop the DOM event AND Leaflet's own path→map propagation (the renderer
+    // checks `originalEvent._stopped` after each target), so the map click
+    // layer doesn't also append a point.
+    L.DomEvent.stopPropagation(event.originalEvent);
+    L.DomEvent.stopPropagation(event);
+    const nearest = nearestSegment(points, event.latlng);
+    if (!nearest) return;
+    insertPosition(
+      nearest.index + 1,
+      nearest.proj.lat,
+      nearest.proj.lon,
+      avgEle(points[nearest.index], points[nearest.index + 1]),
+    );
+  }
+
+  return (
+    <Polyline
+      positions={[toLatLng(a), toLatLng(b)]}
+      pathOptions={{ color: "transparent", weight: 10 }}
+      eventHandlers={{
+        mouseover: (event) => {
+          const nearest = nearestSegment(points, event.latlng);
+          if (nearest) setHover({ kind: "segment", index: nearest.index });
+        },
+        mouseout: () => setHover(null),
+        click: handleClick,
+      }}
+    />
+  );
+}
+
+/**
+ * The stretch of the trace nearest to a map point: its segment index, the
+ * projected insertion point, and how far off the line it sits (meters).
+ */
+function nearestSegment(
+  points: EditorPoint[],
+  latlng: { lat: number; lng: number },
+): { index: number; proj: { lat: number; lon: number }; offM: number } | null {
+  let best: { index: number; proj: { lat: number; lon: number }; offM: number } | null = null;
+  for (let i = 0; i < points.length - 1; i++) {
+    const proj = projectPointOnSegment(points[i], points[i + 1], {
+      lat: latlng.lat,
+      lon: latlng.lng,
+    });
+    const offM = haversineDistanceMeters(proj, { lat: latlng.lat, lon: latlng.lng });
+    if (!best || offM < best.offM) best = { index: i, proj, offM };
+  }
+  return best;
+}
+
+/** Average elevation of two neighbors, when both carry one (for inserted midpoints). */
+function avgEle(a: EditorPoint | undefined, b: EditorPoint | undefined): number | undefined {
+  if (a?.ele !== undefined && b?.ele !== undefined) return (a.ele + b.ele) / 2;
+  return undefined;
 }
 
 /* ------------------------------------------------------------------ */

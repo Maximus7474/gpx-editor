@@ -1,11 +1,32 @@
-import { Box, Button, Flex, HStack, IconButton, Stack, Text } from "@chakra-ui/react";
-import { CaretDoubleRightIcon, PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react";
+import {
+  Box,
+  Button,
+  Collapsible,
+  Flex,
+  HStack,
+  IconButton,
+  Menu,
+  Stack,
+  Text,
+} from "@chakra-ui/react";
+import {
+  CaretDoubleRightIcon,
+  CaretDownIcon,
+  DotsThreeVerticalIcon,
+  PencilSimpleIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
 import { type ReactNode, useMemo } from "react";
 import { toaster } from "../../components/ui/toaster";
 import { formatDistance } from "../../lib/format";
-import { distanceAlongTraceM, haversineDistanceMeters } from "../../lib/gpx/geometry";
+import {
+  distanceAlongTraceM,
+  haversineDistanceMeters,
+  midpointBetween,
+} from "../../lib/gpx/geometry";
 import { traceLengthM, useTraceEditorStore } from "../../lib/stores/traceEditorStore";
 import {
+  type EditorPoint,
   type EditorWaypoint,
   WAYPOINT_CATEGORIES,
   type WaypointCategoryId,
@@ -85,46 +106,48 @@ export function DetailsPanel({ open, onToggle, onEditWaypoint }: DetailsPanelPro
       {open && (
         <>
           <Stack gap="0" flex="1" minH="0" overflowY="auto" py="2" px="3">
-            <SectionHeader label="Positions" count={points.length} />
-            {points.length === 0 ? (
-              <EmptyHint
-                text="No positions yet — trace your route on the map."
-                actionLabel="Add positions"
-                onAction={() => setTool("add-point")}
-              />
-            ) : (
-              <Stack gap="0.5" mb="4">
-                {points.map((point, index) => (
-                  <PositionRow
-                    key={point.id}
-                    index={index}
-                    point={point}
-                    cumulativeM={cumulativeM[index]}
-                    selected={selected?.kind === "point" && selected.index === index}
-                  />
-                ))}
-              </Stack>
-            )}
+            <CollapsibleSection label="Positions" count={points.length}>
+              {points.length === 0 ? (
+                <EmptyHint
+                  text="No positions yet — trace your route on the map."
+                  actionLabel="Add positions"
+                  onAction={() => setTool("add-point")}
+                />
+              ) : (
+                <Stack gap="0.5" mb="4">
+                  {points.map((point, index) => (
+                    <PositionRow
+                      key={point.id}
+                      index={index}
+                      point={point}
+                      cumulativeM={cumulativeM[index]}
+                      selected={selected?.kind === "point" && selected.index === index}
+                    />
+                  ))}
+                </Stack>
+              )}
+            </CollapsibleSection>
 
-            <SectionHeader label="Waypoints" count={waypoints.length} />
-            {waypoints.length === 0 ? (
-              <EmptyHint
-                text="Drop checkpoints, hydration stations, start/finish…"
-                actionLabel="Add waypoint"
-                onAction={() => setTool("add-waypoint")}
-              />
-            ) : (
-              <Stack gap="0.5" mb="2">
-                {waypoints.map((waypoint) => (
-                  <WaypointRow
-                    key={waypoint.id}
-                    waypoint={waypoint}
-                    selected={selected?.kind === "waypoint" && selected.id === waypoint.id}
-                    onEdit={onEditWaypoint}
-                  />
-                ))}
-              </Stack>
-            )}
+            <CollapsibleSection label="Waypoints" count={waypoints.length}>
+              {waypoints.length === 0 ? (
+                <EmptyHint
+                  text="Drop checkpoints, hydration stations, start/finish…"
+                  actionLabel="Add waypoint"
+                  onAction={() => setTool("add-waypoint")}
+                />
+              ) : (
+                <Stack gap="0.5" mb="2">
+                  {waypoints.map((waypoint) => (
+                    <WaypointRow
+                      key={waypoint.id}
+                      waypoint={waypoint}
+                      selected={selected?.kind === "waypoint" && selected.id === waypoint.id}
+                      onEdit={onEditWaypoint}
+                    />
+                  ))}
+                </Stack>
+              )}
+            </CollapsibleSection>
 
             {categoriesInUse.length > 0 && (
               <Box pt="1" mt="1" borderTopWidth="1px" borderColor="border.subtle">
@@ -161,16 +184,38 @@ export function DetailsPanel({ open, onToggle, onEditWaypoint }: DetailsPanelPro
   );
 }
 
-function SectionHeader({ label, count }: { label: string; count: number }) {
+function CollapsibleSection({
+  label,
+  count,
+  children,
+}: {
+  label: string;
+  count: number;
+  children: ReactNode;
+}) {
   return (
-    <HStack justify="space-between" mb="1" mt="1">
-      <Text fontWeight="semibold" textStyle="sm">
-        {label}
-      </Text>
-      <Text color="fg.muted" textStyle="xs" tabIndex={-1}>
-        {count}
-      </Text>
-    </HStack>
+    <Collapsible.Root defaultOpen>
+      <Collapsible.Trigger w="full" p="0" display="block" cursor="pointer">
+        <HStack justify="space-between" mb="1" mt="1">
+          <Text fontWeight="semibold" textStyle="sm">
+            {label}
+          </Text>
+          <HStack gap="1">
+            <Text color="fg.muted" textStyle="xs" tabIndex={-1}>
+              {count}
+            </Text>
+            <Collapsible.Indicator
+              transition="transform 0.2s"
+              _open={{ transform: "rotate(180deg)" }}
+              color="fg.muted"
+            >
+              <CaretDownIcon size={14} />
+            </Collapsible.Indicator>
+          </HStack>
+        </HStack>
+      </Collapsible.Trigger>
+      <Collapsible.Content>{children}</Collapsible.Content>
+    </Collapsible.Root>
   );
 }
 
@@ -204,12 +249,42 @@ function PositionRow({
   selected,
 }: {
   index: number;
-  point: { lat: number; lon: number };
+  point: EditorPoint;
   cumulativeM: number;
   selected: boolean;
 }) {
   const select = useTraceEditorStore((s) => s.select);
   const setHover = useTraceEditorStore((s) => s.setHover);
+  const points = useTraceEditorStore((s) => s.points);
+  const deletePoint = useTraceEditorStore((s) => s.deletePoint);
+  const insertPosition = useTraceEditorStore((s) => s.insertPosition);
+
+  function insertBefore() {
+    if (index === 0) {
+      // No midpoint before the first vertex — duplicate it so it can be dragged.
+      insertPosition(0, point.lat, point.lon, point.ele);
+      return;
+    }
+    const previous = points[index - 1];
+    const mid = midpointBetween(previous, point);
+    insertPosition(index, mid.lat, mid.lon, avgElevation(previous, point));
+  }
+
+  function insertAfter() {
+    const next = points[index + 1];
+    if (!next) {
+      // No midpoint after the last vertex — duplicate it so it can be dragged.
+      insertPosition(index + 1, point.lat, point.lon, point.ele);
+      return;
+    }
+    const mid = midpointBetween(point, next);
+    insertPosition(index + 1, mid.lat, mid.lon, avgElevation(point, next));
+  }
+
+  function handleDelete() {
+    deletePoint(index);
+    toaster.create({ title: "Position deleted", type: "info" });
+  }
 
   return (
     <Row
@@ -242,8 +317,40 @@ function PositionRow({
           at {formatDistance(cumulativeM)}
         </Text>
       </Box>
+      <Menu.Root>
+        <Menu.Trigger asChild>
+          <IconButton
+            aria-label={`Actions for position ${index + 1}`}
+            variant="ghost"
+            size="2xs"
+            flexShrink="0"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <DotsThreeVerticalIcon />
+          </IconButton>
+        </Menu.Trigger>
+        <Menu.Positioner>
+          <Menu.Content>
+            <Menu.Item value="insert-before" onClick={insertBefore}>
+              <Menu.ItemText>Insert before</Menu.ItemText>
+            </Menu.Item>
+            <Menu.Item value="insert-after" onClick={insertAfter}>
+              <Menu.ItemText>Insert after</Menu.ItemText>
+            </Menu.Item>
+            <Menu.Item value="delete" onClick={handleDelete}>
+              <Menu.ItemText color="fg.error">Delete position</Menu.ItemText>
+            </Menu.Item>
+          </Menu.Content>
+        </Menu.Positioner>
+      </Menu.Root>
     </Row>
   );
+}
+
+/** Average elevation of two neighbors, when both carry one (for inserted midpoints). */
+function avgElevation(a: EditorPoint, b: EditorPoint): number | undefined {
+  if (a.ele !== undefined && b.ele !== undefined) return (a.ele + b.ele) / 2;
+  return undefined;
 }
 
 function WaypointRow({

@@ -13,7 +13,7 @@ import { distanceAlongTraceM, haversineDistanceMeters } from "../../lib/gpx/geom
 import { type ElevationProfile, elevationAtDistance } from "../../lib/gpx/profile";
 import { traceLengthM, useTraceEditorStore } from "../../lib/stores/traceEditorStore";
 import { type EditorPoint, type EditorWaypoint, waypointCategory } from "../../lib/types/trace";
-import { TRACE_COLOR } from "./EditorMap";
+import { SELECT_COLOR, TRACE_COLOR } from "./EditorMap";
 
 const CHART_HEIGHT = 150;
 const MARGIN = { top: 22, right: 16, bottom: 22 };
@@ -148,6 +148,7 @@ function ElevationChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const setHover = useTraceEditorStore((s) => s.setHover);
+  const hover = useTraceEditorStore((s) => s.hover);
   const [hoverDistanceM, setHoverDistanceM] = useState<number | null>(null);
 
   useEffect(() => {
@@ -220,6 +221,26 @@ function ElevationChart({
       .join("");
     return { linePath, xOf, yOf };
   }, [samples, plotWidth, plotHeight, totalM, yScale]);
+
+  // Cross-highlight from the list/map: a hovered vertex becomes a dot on the
+  // curve, a hovered stretch becomes the matching part of the curve highlighted.
+  const hoveredPointPosition =
+    hover?.kind === "point" && hover.index < points.length
+      ? {
+          x: xOf(cumulativeM[hover.index]),
+          y: yOf(profile ? elevationAtDistance(profile, cumulativeM[hover.index]) : 0),
+        }
+      : null;
+  const hoveredSegmentPath =
+    hover?.kind === "segment" && hover.index >= 0 && hover.index < points.length - 1
+      ? (() => {
+          const d0 = cumulativeM[hover.index];
+          const d1 = cumulativeM[hover.index + 1];
+          const e0 = profile ? elevationAtDistance(profile, d0) : 0;
+          const e1 = profile ? elevationAtDistance(profile, d1) : 0;
+          return `M${xOf(d0).toFixed(2)},${yOf(e0).toFixed(2)}L${xOf(d1).toFixed(2)},${yOf(e1).toFixed(2)}`;
+        })()
+      : null;
 
   function handlePointerMove(event: ReactPointerEvent<SVGRectElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -312,12 +333,37 @@ function ElevationChart({
           </>
         )}
 
+        {/* Hovered stretch of the trace, highlighted on the curve. */}
+        {hoveredSegmentPath && (
+          <path
+            d={hoveredSegmentPath}
+            fill="none"
+            stroke={SELECT_COLOR}
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {/* Hovered vertex, marked with a dot on the curve. */}
+        {hoveredPointPosition && (
+          <circle
+            cx={hoveredPointPosition.x}
+            cy={hoveredPointPosition.y}
+            r="4"
+            fill={SELECT_COLOR}
+            stroke="#ffffff"
+            strokeWidth="1.5"
+          />
+        )}
+
         {/* Waypoint km markers */}
         {markers.map((marker) => {
           const x = xOf(marker.distanceM);
           const labelX = Math.min(Math.max(x, 26), width - 26);
           const nearStart = x < 30;
           const nearEnd = x > width - 30;
+          const emphasized = hover?.kind === "waypoint" && hover.id === marker.id;
           return (
             <g key={marker.id}>
               <line
@@ -326,9 +372,19 @@ function ElevationChart({
                 y1={MARGIN.top}
                 y2={plotBottom}
                 stroke={marker.color}
-                strokeWidth="1.5"
+                strokeWidth={emphasized ? 3 : 1.5}
                 strokeDasharray="3 3"
               />
+              {emphasized && (
+                <circle
+                  cx={x}
+                  cy={MARGIN.top}
+                  r="3.5"
+                  fill={marker.color}
+                  stroke="#ffffff"
+                  strokeWidth="1"
+                />
+              )}
               <text
                 x={labelX}
                 y={MARGIN.top - 7}

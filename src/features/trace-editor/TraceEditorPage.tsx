@@ -37,12 +37,13 @@ import { WaypointDialog } from "./WaypointDialog";
 
 /**
  * Trace creator/editor workspace. The session is in-memory:
- * positions are laid by clicking the map, waypoints (checkpoints, hydration
- * stations…) can be dropped, dragged, renamed and recategorized, and every
- * change is undoable. `/trace-editor/:fileId` loads a library GPX for in-place
- * editing; saving serializes the session back to GPX in the managed library.
- * Leaving the workspace discards the session, so the editor always re-opens
- * as a blank project.
+ * positions are laid by clicking the map and can then be dragged, deleted or
+ * inserted between (click the trace or use the row menu); waypoints
+ * (checkpoints, hydration stations…) can be dropped, dragged, renamed and
+ * recategorized, and every change is undoable. `/trace-editor/:fileId` loads
+ * a library GPX for in-place editing; saving serializes the session back to
+ * GPX in the managed library. Leaving the workspace discards the session, so
+ * the editor always re-opens as a blank project.
  */
 export function TraceEditorPage() {
   const navigate = useNavigate();
@@ -59,6 +60,9 @@ export function TraceEditorPage() {
   const points = useTraceEditorStore((s) => s.points);
   const waypoints = useTraceEditorStore((s) => s.waypoints);
   const tool = useTraceEditorStore((s) => s.tool);
+  const selected = useTraceEditorStore((s) => s.selected);
+  const deletePoint = useTraceEditorStore((s) => s.deletePoint);
+  const deleteWaypoint = useTraceEditorStore((s) => s.deleteWaypoint);
   const discard = useTraceEditorStore((s) => s.discard);
   const savedFile = useTraceEditorStore((s) => s.savedFile);
   const saved = useTraceEditorStore((s) => s.saved);
@@ -116,6 +120,46 @@ export function TraceEditorPage() {
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [unsaved]);
+
+  // Delete/Backspace removes the selected point or waypoint. Ignored while
+  // typing in a field or when a dialog is open, so it never fights the user.
+  useEffect(() => {
+    if (!selected) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Delete" && event.key !== "Backspace") return;
+      if (!selected) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (leaveOpen || saveOpen || copyOpen || clearOpen || editingWaypointId !== null) return;
+      event.preventDefault();
+      if (selected.kind === "point") {
+        deletePoint(selected.index);
+        toaster.create({ title: "Position deleted", type: "info" });
+      } else {
+        deleteWaypoint(selected.id);
+        toaster.create({ title: "Waypoint deleted", type: "info" });
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    selected,
+    deletePoint,
+    deleteWaypoint,
+    leaveOpen,
+    saveOpen,
+    copyOpen,
+    clearOpen,
+    editingWaypointId,
+  ]);
 
   function handleStay() {
     setLeaveOpen(false);
@@ -503,11 +547,11 @@ export function TraceEditorPage() {
 function toolHint(tool: EditorTool): string {
   switch (tool) {
     case "add-point":
-      return "Click to add a position · drag the map to move around";
+      return "Click to add a position · drag any point to move it · click the trace to insert between";
     case "add-waypoint":
       return "Click to drop a waypoint — drag or double-click it afterwards";
     case "select":
-      return "Click a point or waypoint to select it; double-click a waypoint to edit";
+      return "Click a point or waypoint to select it · drag points to move them · Delete removes the selection";
   }
 }
 

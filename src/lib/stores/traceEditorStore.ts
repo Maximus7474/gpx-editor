@@ -29,8 +29,16 @@ interface Snapshot {
   waypoints: EditorWaypoint[];
 }
 
-/** Ephemeral cross-highlight between the details panel and the map (not undoable). */
-export type TraceHover = { kind: "point"; index: number } | { kind: "waypoint"; id: string } | null;
+/**
+ * Ephemeral cross-highlight shared by the details panel, the map and the
+ * elevation chart (not undoable). `segment` index `i` is the stretch of the
+ * trace between points `i` and `i+1`.
+ */
+export type TraceHover =
+  | { kind: "point"; index: number }
+  | { kind: "segment"; index: number }
+  | { kind: "waypoint"; id: string }
+  | null;
 
 /** Where a trace was last saved in the library (drives re-save + the header). */
 export interface SavedTraceFile {
@@ -94,6 +102,16 @@ interface TraceEditorState {
   /** Enrich positions that still lack an elevation (background, not undoable). */
   refreshElevations: () => Promise<void>;
   addPosition: (lat: number, lon: number) => void;
+  /**
+   * Insert a position at `index` (segment-click or the list's insert actions).
+   * An optional elevation can be carried over from the neighbors so the
+   * profile stays instant; otherwise it gets fetched in the background.
+   */
+  insertPosition: (index: number, lat: number, lon: number, ele?: number) => void;
+  /** Move a position (map drag). Drops its cached elevation so it re-fetches. */
+  movePoint: (index: number, lat: number, lon: number) => void;
+  /** Remove a position, fixing up the point selection. */
+  deletePoint: (index: number) => void;
   addWaypoint: (lat: number, lon: number) => void;
   updateWaypoint: (id: string, patch: { category?: WaypointCategoryId; name?: string }) => void;
   moveWaypoint: (id: string, lat: number, lon: number) => void;
@@ -276,6 +294,64 @@ export const useTraceEditorStore = create<TraceEditorState>((set, get) => {
       beginChange();
       set({
         points: [...points, { id: `position-${++positionCounter}`, lat, lon }],
+      });
+      scheduleElevationRefresh();
+    },
+
+    insertPosition: (index, lat, lon, ele) => {
+      const { points, selected } = get();
+      if (index < 0 || index > points.length) return;
+      beginChange();
+      set({
+        points: [
+          ...points.slice(0, index),
+          {
+            id: `position-${++positionCounter}`,
+            lat,
+            lon,
+            ...(ele === undefined ? {} : { ele }),
+          },
+          ...points.slice(index),
+        ],
+        // A selected point at or after the insertion shifts down by one.
+        selected:
+          selected?.kind === "point" && selected.index >= index
+            ? { kind: "point", index: selected.index + 1 }
+            : selected,
+      });
+      scheduleElevationRefresh();
+    },
+
+    movePoint: (index, lat, lon) => {
+      const { points } = get();
+      const target = points[index];
+      if (!target) return;
+      if (target.lat === lat && target.lon === lon) return;
+      beginChange();
+      set({
+        points: points.map((point, i) =>
+          // The point moved — its old elevation no longer applies, so drop it
+          // and let the background enrichment re-fetch for the new location.
+          i === index ? { ...point, lat, lon, ele: undefined } : point,
+        ),
+      });
+      scheduleElevationRefresh();
+    },
+
+    deletePoint: (index) => {
+      const { points, selected } = get();
+      if (index < 0 || index >= points.length) return;
+      beginChange();
+      set({
+        points: points.filter((_, i) => i !== index),
+        selected:
+          selected?.kind !== "point"
+            ? selected
+            : selected.index === index
+              ? null
+              : selected.index > index
+                ? { kind: "point", index: selected.index - 1 }
+                : selected,
       });
       scheduleElevationRefresh();
     },
