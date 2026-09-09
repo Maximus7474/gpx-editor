@@ -157,6 +157,10 @@ function TraceCamera() {
   const fitSignal = useTraceEditorStore((s) => s.fitSignal);
   const map = useMap();
   const previousCount = useRef(0);
+  // The last fitSignal this camera acted on. The fit effect also re-runs on
+  // every points change, so without this guard any edit after a fit (or after
+  // loading a file) would zoom out to refit the whole trace.
+  const handledFitSignal = useRef(0);
 
   useEffect(() => {
     if (points.length === 0) return;
@@ -167,7 +171,10 @@ function TraceCamera() {
   }, [map, points]);
 
   useEffect(() => {
-    if (fitSignal === 0) return;
+    // Fit only when the signal advances (the toolbar button or a file load),
+    // never as a side effect of editing the trace.
+    if (fitSignal === 0 || fitSignal === handledFitSignal.current) return;
+    handledFitSignal.current = fitSignal;
     if (points.length >= 2) {
       map.fitBounds(L.latLngBounds(points.map(toLatLng)), { padding: [44, 44] });
     } else if (points.length === 1) {
